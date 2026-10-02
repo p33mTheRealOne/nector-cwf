@@ -1,0 +1,7 @@
+use buyer wallet:
+export ANCHOR_WALLET=~/nector-smart-contract/buyer.json
+
+buyer fund escrow:
+npx ts-node -T tests/buyer_fund_escrow.ts <Order index> <Seller wallet address>
+
+npx ts-node -T tests/buyer_fund_escrow.ts 57 2exK3CJ27S49whN61QBbLCk174n5jTem1HjrD5pePYCR

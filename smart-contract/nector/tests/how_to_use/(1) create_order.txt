@@ -1,0 +1,7 @@
+Use seller wallet:
+export ANCHOR_WALLET=~/nector-smart-contract/seller.json
+
+create order:
+npx ts-node -T tests/create_order.ts <Mode(BTR,STR)> <Product type(physical,digital)> <Order name> <Buyer wallet address> <Price in SOLANA> <Shipping hours(Max 720hours)>
+
+npx ts-node -T tests/create_order.ts BTR physical "GoldBar_from_USA" BbzdZAvBuNDcagzuUrzbwTiaaRkChAu5x8XMUkYbHYDt 0.05 24

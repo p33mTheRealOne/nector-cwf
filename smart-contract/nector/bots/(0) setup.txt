@@ -1,0 +1,14 @@
+Set bot wallet:
+export ANCHOR_WALLET=~/nector-smart-contract/seller.json
+
+Run shipping timeout bot:
+npx ts-node -T bots/shipping_timeout.ts
+
+Run confirm timeout bot:
+npx ts-node -T bots/confirm_timeout.ts
+
+Run discussion timeout bot:
+npx ts-node -T bots/discussion_timeout.ts
+
+Run respond timeout bot:
+npx ts-node -T bots/respond_timeout.ts

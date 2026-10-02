@@ -1,0 +1,7 @@
+Use seller wallet:
+export ANCHOR_WALLET=~/nector-smart-contract/seller.json
+
+Mark as shipped:
+npx ts-node tests/mark_shipped.ts <order_index>
+
+npx ts-node -T tests/mark_shipped.ts 0

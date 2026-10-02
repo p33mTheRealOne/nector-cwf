@@ -1,0 +1,4 @@
+Trigger Shipping Timeout:
+npx ts-node tests/shipping_timeout.ts <order_index> <seller_pubkey>
+
+npx ts-node -T tests/shipping_timeout.ts 0 2exK3CJ27S49whN61QBbLCk174n5jTem1HjrD5pePYCR

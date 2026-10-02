@@ -1,0 +1,4 @@
+Trigger confirm Timeout:
+npx ts-node tests/confirm_timeout.ts <order_index> <seller_pubkey>
+
+npx ts-node -T tests/confirm_timeout.ts 0 2exK3CJ27S49whN61QBbLCk174n5jTem1HjrD5pePYCR
