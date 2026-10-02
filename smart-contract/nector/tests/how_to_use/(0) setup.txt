@@ -1,2 +1,0 @@
-Set to devnet:
-export ANCHOR_PROVIDER_URL=https://api.devnet.solana.com
