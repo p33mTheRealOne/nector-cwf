@@ -1,0 +1,6 @@
+Use seller wallet:
+export ANCHOR_WALLET=~/nector-smart-contract/seller.json
+
+npx ts-node tests/respond_dispute.ts <order_index>
+
+npx ts-node -T tests/respond_dispute.ts 0

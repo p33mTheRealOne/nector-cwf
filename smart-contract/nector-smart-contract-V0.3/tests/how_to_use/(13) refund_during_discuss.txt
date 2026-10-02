@@ -1,0 +1,6 @@
+Use seller wallet:
+export ANCHOR_WALLET=~/nector-smart-contract/seller.json
+
+npx ts-node tests/refund_during_discuss.ts <order_index> <buyer_pubkey>
+
+npx ts-node -T tests/refund_during_discuss.ts 0 BbzdZAvBuNDcagzuUrzbwTiaaRkChAu5x8XMUkYbHYDt

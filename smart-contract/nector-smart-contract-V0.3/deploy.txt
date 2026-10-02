@@ -1,0 +1,13 @@
+p33m@DESKTOP-J2OK5RH:~/nector-smart-contract-V0.3$ solana balance
+3.988566148 SOL
+p33m@DESKTOP-J2OK5RH:~/nector-smart-contract-V0.3$ anchor deploy --provider.cluster mainnet
+Deploying cluster: https://api.mainnet-beta.solana.com
+Upgrade authority: /home/p33m/.config/solana/author.json
+Deploying program "nector_smart_contract_v0_3"...
+Program path: /home/p33m/nector-smart-contract-V0.3/target/deploy/nector_smart_contract_v0_3.so...
+Program Id: WytegETAnkDtkeo5H63QvnRPKgK39ez5MSqSBqwydPb
+
+Signature: 35rU9AjJcvBg68WVYhQhZnzJAAy3j7N5RwCX1BHVWfsBKDT7ZcdK4ygxXuumjCnq8Xg4eDtHiSXeENVFg8WmvFp1
+
+Deploy success
+p33m@DESKTOP-J2OK5RH:~/nector-smart-contract-V0.3$

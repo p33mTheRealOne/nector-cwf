@@ -1,0 +1,6 @@
+Use seller wallet:
+export ANCHOR_WALLET=~/nector-smart-contract/seller.json
+
+npx ts-node tests/seller_cancel.ts <order_index> <buyer_pubkey>
+
+npx ts-node -T tests/seller_cancel.ts 30 BbzdZAvBuNDcagzuUrzbwTiaaRkChAu5x8XMUkYbHYDt

@@ -1,0 +1,6 @@
+Use buyer wallet:
+export ANCHOR_WALLET=~/nector-smart-contract/buyer.json
+
+npx ts-node tests/pay_seller_during_discuss.ts <order_index> <seller_pubkey>
+
+npx ts-node -T tests/pay_seller_during_discuss.ts 0 2exK3CJ27S49whN61QBbLCk174n5jTem1HjrD5pePYCR

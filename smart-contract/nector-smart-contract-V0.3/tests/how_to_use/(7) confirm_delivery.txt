@@ -1,0 +1,7 @@
+Use buyer wallet:
+export ANCHOR_WALLET=~/nector-smart-contract/buyer.json
+
+Confirm Delivery:
+npx ts-node tests/confirm_delivery.ts <order_index> <seller_pubkey>
+
+npx ts-node -T tests/confirm_delivery.ts 10 2exK3CJ27S49whN61QBbLCk174n5jTem1HjrD5pePYCR
