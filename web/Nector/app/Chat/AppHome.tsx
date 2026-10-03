@@ -671,6 +671,93 @@ function ButtonLoadingLabel({ label }: { label: string }) {
   );
 }
 
+function Spinner({
+  size = 20,
+  thickness = 2,
+  className = '',
+}: {
+  size?: number;
+  thickness?: number;
+  className?: string;
+}) {
+  return (
+    <span
+      aria-hidden="true"
+      style={{ width: size, height: size, borderWidth: thickness }}
+      className={`inline-block shrink-0 rounded-full border-current/25 border-t-current animate-spin ${className}`}
+    />
+  );
+}
+
+type AsyncButtonProps = Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, 'onClick'> & {
+  onClick?: (e: React.MouseEvent<HTMLButtonElement>) => unknown;
+  spinnerSize?: number;
+};
+
+// A button whose click handler may be async. While the handler's promise is
+// pending (wallet popup, transaction being confirmed, file uploading ...) the
+// label is replaced by a spinning ring, the button can't be clicked again and
+// it keeps its exact size. Handlers that return nothing (plain navigation)
+// behave like a normal button.
+function AsyncButton({
+  onClick,
+  disabled,
+  className = '',
+  children,
+  spinnerSize = 22,
+  type = 'button',
+  ...rest
+}: AsyncButtonProps) {
+  const [busy, setBusy] = React.useState(false);
+  const busyRef = React.useRef(false);
+  const mountedRef = React.useRef(true);
+
+  React.useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
+  const handleClick = async (e: React.MouseEvent<HTMLButtonElement>) => {
+    if (busyRef.current || !onClick) return;
+
+    const result: any = onClick(e);
+    if (!result || typeof result.then !== 'function') return;
+
+    busyRef.current = true;
+    setBusy(true);
+    try {
+      await result;
+    } catch (err) {
+      console.error(err);
+    } finally {
+      busyRef.current = false;
+      if (mountedRef.current) setBusy(false);
+    }
+  };
+
+  return (
+    <button
+      {...rest}
+      type={type}
+      onClick={handleClick}
+      disabled={disabled || busy}
+      aria-busy={busy || undefined}
+      className={`relative ${className} ${busy ? 'cursor-wait' : ''}`}
+    >
+      {/* `contents` keeps the children in the button's own flex layout;
+          `invisible` hides them without changing the button's size */}
+      <span className={busy ? 'contents invisible' : 'contents'}>{children}</span>
+      {busy && (
+        <span className="absolute inset-0 grid place-items-center">
+          <Spinner size={spinnerSize} />
+        </span>
+      )}
+    </button>
+  );
+}
+
 function AvatarSkeleton() {
   return <Skeleton className="size-12 rounded-full shrink-0" shimmer />;
 }
@@ -2425,7 +2512,7 @@ function EscrowPreview({
             disabled={isSubmitting}
             className={`w-full ${UI.primaryButton} text-base md:text-lg ${isSubmitting ? 'opacity-60 cursor-not-allowed' : ''}`}
           >
-            {isSubmitting ? 'Creating…' : 'Create Escrow Order'}
+            {isSubmitting ? <span className="inline-flex items-center justify-center"><Spinner size={24} /></span> : 'Create Escrow Order'}
           </button>
         </div>
       </div>
@@ -2579,11 +2666,14 @@ function ChatImage({
   getUrl,
   className = '',
   onLoaded,
+  placeholderSrc,
 }: {
   path: string;
   getUrl: (p: string) => Promise<string>;
   className?: string;
   onLoaded?: () => void;
+  /** local preview shown until the real (signed) URL has loaded */
+  placeholderSrc?: string;
 }) {
   const [url, setUrl] = React.useState('');
 
@@ -2595,7 +2685,13 @@ function ChatImage({
     };
   }, [path, getUrl]);
 
-  if (!url) return <ImageSkeleton className={className} />;
+  if (!url) {
+    return placeholderSrc ? (
+      <img src={placeholderSrc} alt="sent" className={`block ${className}`} onLoad={() => onLoaded?.()} />
+    ) : (
+      <ImageSkeleton className={className} />
+    );
+  }
 
   return (
     <img
@@ -2887,23 +2983,23 @@ function EscrowCard({
         </div>
       </div>
       {isBuyer && status === "onchain_created" && (
-        <button
+        <AsyncButton
           onClick={() => onBuy(order)}
           className="mt-4 h-[37px] md:h-[40px] w-full rounded-xl bg-white text-black font-medium flex items-center justify-center gap-2 hover:brightness-95 active:scale-[0.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 transition-all duration-200"
         >
           <Image src="/dollar-sign-svgrepo-black-com.svg" width={16} height={16} alt="Dollar"/>
           Buy
-        </button>
+        </AsyncButton>
       )}
 
       {isBuyer && status === "BuyerFunded" && (
-        <button
+        <AsyncButton
           onClick={() => onRefund?.(order)}
           className="mt-4 h-[37px] md:h-[40px] w-full rounded-xl bg-white text-black font-medium flex items-center justify-center gap-2 hover:brightness-95 active:scale-[0.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 transition-all duration-200"
         >
           <Image src="/refund-forward-svgrepo-com (1).svg" width={22} height={22} alt="Refund"/>
           Refund
-        </button>
+        </AsyncButton>
       )}
 
       {isBuyer && status === "Shipping" && (
@@ -2916,32 +3012,32 @@ function EscrowCard({
       )}
 
       {isBuyer && status === "Shipped" && order.type === "physical" && (
-        <button
+        <AsyncButton
           onClick={() => onReview?.(order)}
           className="mt-4 h-[37px] md:h-[40px] w-full rounded-xl bg-white text-black font-medium flex items-center justify-center gap-2 hover:brightness-95 active:scale-[0.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 transition-all duration-200"
         >
           <Image src="/eye-show-svgrepo-com.svg" width={24} height={24} alt="review"/>
           Review
-        </button>
+        </AsyncButton>
       )}
 
       {isBuyer && status === "Shipped" && order.type === "digital" && (
         <div>
-          <button
+          <AsyncButton
             onClick={() => onDownload(order)}
             className="mt-4 h-[37px] md:h-[40px] w-full rounded-xl bg-white text-black font-medium flex items-center justify-center gap-2 hover:brightness-95 active:scale-[0.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 transition-all duration-200"
           >
             <Image src="/download-svgrepo-com.svg" width={20} height={20} alt="download" className='mb-0.5'/>
             Download Item
-          </button>
+          </AsyncButton>
 
-          <button
+          <AsyncButton
             onClick={() => onReview?.(order)}
             className="mt-4 h-[37px] md:h-[40px] w-full rounded-xl bg-white text-black font-medium flex items-center justify-center gap-2 hover:brightness-95 active:scale-[0.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 transition-all duration-200"
           >
             <Image src="/eye-show-svgrepo-com.svg" width={24} height={24} alt="review"/>
             Review
-          </button>
+          </AsyncButton>
         </div>
       )}
 
@@ -2955,83 +3051,83 @@ function EscrowCard({
       )}
 
       {isSeller && status === "onchain_created" && order.type === "nft" && (
-        <button
+        <AsyncButton
           onClick={() => onCancel?.(order)}
           className="mt-4 h-[37px] md:h-[40px] w-full rounded-xl bg-[#510000] text-[#FF0000] font-medium flex items-center justify-center gap-2"
         >
           <Image src="/cancel-red-svgrepo-com.svg" width={12} height={12} alt="Cancel"/>
           Cancel Listing
-        </button>
+        </AsyncButton>
       )}
 
       {isSeller && status === "BuyerFunded" && (
-        <button
+        <AsyncButton
           onClick={() => onFundEscrow?.(order)}
           className="mt-4 h-[37px] md:h-[40px] w-full rounded-xl bg-white text-black font-medium flex items-center justify-center gap-2 hover:brightness-95 active:scale-[0.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 transition-all duration-200"
         >
           <Image src="/dollar-sign-svgrepo-black-com.svg" width={16} height={16} alt="Dollar"/>
           Fund Escrow
-        </button>
+        </AsyncButton>
       )}
 
       {isBuyer && status === "Discuss" && (
-        <button
+        <AsyncButton
           onClick={() => onPaySeller?.(order)}
           className="mt-4 h-[37px] md:h-[40px] w-full rounded-xl bg-white text-black font-medium flex items-center justify-center gap-2 hover:brightness-95 active:scale-[0.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 transition-all duration-200"
         >
           <Image src="/dollar-sign-svgrepo-black-com.svg" width={16} height={16} alt="Dollar"/>
           Pay Seller
-        </button>
+        </AsyncButton>
       )}
 
 
       {isSeller && status === "Discuss" && (
-        <button
+        <AsyncButton
           onClick={() => onRefundDiscuss?.(order)}
           className="mt-4 h-[37px] md:h-[40px] w-full rounded-xl bg-white text-black font-medium flex items-center justify-center gap-2 hover:brightness-95 active:scale-[0.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 transition-all duration-200"
         >
           <Image src="/reply-svgrepo-com (1).svg" width={17} height={17} alt="respond"/>
           Refund Buyer {/*During discuss time*/}
-        </button>
+        </AsyncButton>
       )}
 
       {isSeller && status === "Shipping" && order.type === "physical" && (
         <div>
-          <button
+          <AsyncButton
             onClick={() => onMarkShipped?.(order)}
             className="mt-4 h-[37px] md:h-[40px] w-full rounded-xl bg-white text-black font-medium flex items-center justify-center gap-2 hover:brightness-95 active:scale-[0.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 transition-all duration-200"
           >
             <Image src="/check-svgrepo-com.svg" width={22} height={22} alt="mark"/>
             Mark as Shipped
-          </button>
+          </AsyncButton>
 
-          <button
+          <AsyncButton
             onClick={() => onCancel?.(order)}
             className="mt-4 h-[37px] md:h-[40px] w-full rounded-xl bg-[#510000] text-[#FF0000] font-medium flex items-center justify-center gap-2"
           >
             <Image src="/cancel-red-svgrepo-com.svg" width={12} height={12} alt="Cancel"/>
             Cancel
-          </button>
+          </AsyncButton>
         </div>
       )}
 
       {isSeller && status === "Shipping" && order.type === "digital" && (
         <div>
-          <button
+          <AsyncButton
             onClick={() => onUploadFile?.(order)}
             className="mt-4 h-[37px] md:h-[40px] w-full rounded-xl bg-white text-black font-medium flex items-center justify-center gap-2 hover:brightness-95 active:scale-[0.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 transition-all duration-200"
           >
             <Image src="/upload-svgrepo-com (1).svg" width={17} height={17} alt="upload"/>
             Upload file
-          </button>
+          </AsyncButton>
 
-          <button
+          <AsyncButton
             onClick={() => onCancel?.(order)}
             className="mt-4 h-[37px] md:h-[40px] w-full rounded-xl bg-[#510000] text-[#FF0000] font-medium flex items-center justify-center gap-2"
           >
             <Image src="/cancel-red-svgrepo-com.svg" width={12} height={12} alt="Cancel"/>
             Cancel
-          </button>
+          </AsyncButton>
         </div>
       )}
 
@@ -3046,20 +3142,20 @@ function EscrowCard({
 
       {isSeller && status === "Dispute" && (
         <div>
-          <button
+          <AsyncButton
             onClick={() => onRespond?.(order)}
             className="mt-4 h-[37px] md:h-[40px] w-full rounded-xl bg-white text-black font-medium flex items-center justify-center gap-2 hover:brightness-95 active:scale-[0.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 transition-all duration-200"
           >
             <Image src="/reply-svgrepo-com (1).svg" width={17} height={17} alt="respond"/>
             Respond
-          </button>
-          <button
+          </AsyncButton>
+          <AsyncButton
             onClick={()=>onDisputeRefund(order)}
             className="mt-4 h-[37px] md:h-[40px] w-full rounded-xl bg-white text-black font-medium flex items-center justify-center gap-2 hover:brightness-95 active:scale-[0.985] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/40 transition-all duration-200"
           >
             <Image src="/refund-forward-svgrepo-com (1).svg" width={20} height={20} alt="refund"/>
             Refund
-          </button>
+          </AsyncButton>
         </div>
       )}
 
@@ -3328,12 +3424,12 @@ function BuyerRefundScreen({
 
           </div>
 
-          <button
+          <AsyncButton
             onClick={()=>onRefund(order)}
             className="h-[46px] rounded-[10px] font-semibold w-full max-w-[320px] bg-[#26D9D9] text-black hover:opacity-90 transition"
           >
             Refund
-          </button>
+          </AsyncButton>
 
         </div>
       </div>
@@ -3581,12 +3677,12 @@ function SellerCancelScreen({
             </div>
           </div>
 
-          <button
+          <AsyncButton
             onClick={()=>onRefund(order)}
             className="h-[46px] rounded-[10px] font-semibold w-full max-w-[320px] bg-[#26D9D9] text-black hover:opacity-90 transition"
           >
             Cancel
-          </button>
+          </AsyncButton>
 
         </div>
       </div>
@@ -3672,12 +3768,12 @@ function SellerCancelScreen({
             Cancel
           </button>
         </div>
-          <button
+          <AsyncButton
             onClick={()=> order.type === "nft" ? onRefund(order) : setStep("receipt")}
             className="h-[46px] rounded-[10px] font-semibold w-full max-w-[420px] bg-[#26D9D9] text-black hover:opacity-90 transition"
           >
             Cancel
-          </button>
+          </AsyncButton>
       </div>
     </div>
   )
@@ -3952,12 +4048,12 @@ function RespondDisputeWyntkScreen({
             Respond
           </button>
         </div>
-          <button
+          <AsyncButton
             onClick={onNext}
             className="h-[46px] rounded-[10px] font-semibold w-full max-w-[420px] bg-[#26D9D9] text-black hover:opacity-90 transition"
           >
             Respond Dispute
-          </button>
+          </AsyncButton>
       </div>
     </div>
   )
@@ -4190,12 +4286,12 @@ function PaySellerDiscussScreen({
             Pay Seller
           </button>
         </div>
-          <button
+          <AsyncButton
             onClick={onNext}
             className="h-[46px] rounded-[10px] font-semibold w-full max-w-[420px] bg-[#26D9D9] text-black hover:opacity-90 transition"
           >
             Pay Seller
-          </button>
+          </AsyncButton>
       </div>
     </div>
   )
@@ -4357,12 +4453,12 @@ function RefundBuyerDiscussScreen({
             </div>
           </div>
 
-          <button
+          <AsyncButton
             onClick={onNext}
             className="h-[46px] rounded-[10px] font-semibold w-full max-w-[320px] bg-[#26D9D9] text-black hover:opacity-90 transition"
           >
             Refund
-          </button>
+          </AsyncButton>
 
         </div>
       </div>
@@ -4611,12 +4707,12 @@ function RefundScreen({
             </div>
           </div>
 
-          <button
+          <AsyncButton
             onClick={onNext}
             className="h-[46px] rounded-[10px] font-semibold w-full max-w-[320px] bg-[#26D9D9] text-black hover:opacity-90 transition"
           >
             Refund
-          </button>
+          </AsyncButton>
 
         </div>
       </div>
@@ -4981,7 +5077,7 @@ function UploadFileScreen({
                     : "bg-[#136262] text-black cursor-not-allowed"
                 }`}
             >
-              {sending ? <ButtonLoadingLabel label="Sending..." /> : "Send"}
+              {sending ? <span className="inline-flex items-center justify-center"><Spinner size={22} /></span> : "Send"}
             </button>
           </div>
         </>
@@ -5751,12 +5847,12 @@ function MarkShippedScreen({
           </button>
         </div>
 
-        <button
+        <AsyncButton
           onClick={()=>onConfirm(order)}
           className="h-[46px] w-full max-w-[420px] rounded-[10px] bg-[#26D9D9] text-black font-semibold"
         >
           Mark this order as Shipped
-        </button>
+        </AsyncButton>
 
       </div>
     </div>
@@ -6446,12 +6542,12 @@ function FundEscrowConfirm({
 
         </div>
 
-        <button
+        <AsyncButton
           onClick={onFund}
           className="h-[46px] rounded-[10px] font-semibold w-full max-w-[320px] bg-[#26D9D9] text-black hover:opacity-90 transition"
         >
           Fund Escrow
-        </button>
+        </AsyncButton>
 
       </div>
     </div>
@@ -6592,12 +6688,12 @@ function BuyNftConfirm({
 
         </div>
 
-        <button
+        <AsyncButton
           onClick={onBuy}
           className="h-[46px] rounded-[10px] font-semibold w-full max-w-[320px] bg-[#26D9D9] text-black hover:opacity-90 transition"
         >
           Buy NFT
-        </button>
+        </AsyncButton>
 
       </div>
     </div>
@@ -6832,12 +6928,12 @@ function SellerFundEscrowConfirm({
 
         </div>
 
-        <button
+        <AsyncButton
           onClick={onFund}
           className="h-[46px] rounded-[10px] font-semibold w-full max-w-[320px] bg-[#26D9D9] text-black hover:opacity-90 transition"
         >
           Fund Escrow
-        </button>
+        </AsyncButton>
 
       </div>
     </div>
@@ -8843,12 +8939,12 @@ function OpenDisputeWyntkScreen({
             Review
           </button>
         </div>
-          <button
+          <AsyncButton
             onClick={() => openDisputeOnChain(order)}
             className="h-[46px] rounded-[10px] font-semibold w-full max-w-[420px] bg-[#26D9D9] text-black hover:opacity-90 transition"
           >
             Open dispute
-          </button>
+          </AsyncButton>
       </div>
     </div>
   )
@@ -9575,12 +9671,12 @@ function ReviewScreen({
                   Confirm
                 </button>
               </div>
-                <button
+                <AsyncButton
                   onClick={() => confirmDeliveryOnChain(order)}
                   className="h-[46px] rounded-[10px] font-semibold w-full max-w-[420px] bg-[#26D9D9] text-black hover:opacity-90 transition"
                 >
                   Confirm
-                </button>
+                </AsyncButton>
             </div>
           </>
         )}
@@ -10463,6 +10559,11 @@ export default function AppHome() {
   const fileInputRef = React.useRef<HTMLInputElement | null>(null);
   const [sendingImage, setSendingImage] = React.useState(false);
 
+  // images that are being uploaded right now (shown as dimmed bubbles with a
+  // spinner) and local previews kept until the real image URL has loaded
+  const [pendingImages, setPendingImages] = React.useState<{ id: string; url: string; path?: string }[]>([]);
+  const [localImagePreviews, setLocalImagePreviews] = React.useState<Record<string, string>>({});
+
   async function sendImage(file: File) {
     if (!userId || !activeContactId || !conversationId) return;
 
@@ -10475,6 +10576,14 @@ export default function AppHome() {
     setReplyTo(null);
 
     setSendingImage(true);
+
+    const pendingId = crypto.randomUUID();
+    const previewUrl = URL.createObjectURL(file);
+    const dropPending = () => setPendingImages((prev) => prev.filter((p) => p.id !== pendingId));
+
+    setPendingImages((prev) => [...prev, { id: pendingId, url: previewUrl }]);
+    requestAnimationFrame(() => followBottomFor(500, true, 'auto'));
+
     try {
       const compressed = await compressImage(file, 1280, 0.75);
 
@@ -10486,8 +10595,14 @@ export default function AppHome() {
 
       if (upErr) {
         console.error(upErr);
+        dropPending();
+        pushToast("Couldn't upload the image. Please try again.");
         return;
       }
+
+      // the real image shows this local preview until its own URL has loaded
+      setLocalImagePreviews((prev) => ({ ...prev, [path]: previewUrl }));
+      setPendingImages((prev) => prev.map((p) => (p.id === pendingId ? { ...p, path } : p)));
 
       const { error: msgErr } = await supabase.from('messages').insert({
         conversation_id: conversationId,
@@ -10511,7 +10626,18 @@ export default function AppHome() {
         return next;
       });
 
-      if (msgErr) console.error(msgErr);
+      if (msgErr) {
+        console.error(msgErr);
+        dropPending();
+        pushToast("Couldn't send the image. Please try again.");
+      } else {
+        // safety net in case the realtime event never arrives
+        window.setTimeout(dropPending, 8000);
+      }
+    } catch (err) {
+      console.error(err);
+      dropPending();
+      pushToast("Couldn't send the image. Please try again.");
     } finally {
       setSendingImage(false);
     }
@@ -10801,6 +10927,18 @@ export default function AppHome() {
 
   const [userId, setUserId] = React.useState<string | null>(null);
   const [dbMessages, setDbMessages] = React.useState<DbMessage[]>([]);
+
+  // the real message arrived (realtime): drop the placeholder bubble
+  React.useEffect(() => {
+    if (pendingImages.length === 0) return;
+
+    const bodies = new Set(dbMessages.map((m) => m.body));
+    const done = pendingImages.filter((p) => p.path && bodies.has(`imgpath:${p.path}`));
+
+    if (done.length > 0) {
+      setPendingImages((prev) => prev.filter((p) => !done.some((d) => d.id === p.id)));
+    }
+  }, [dbMessages, pendingImages]);
   const router = useRouter();
   const supabase = React.useMemo(() => supabaseBrowser(), []);
   const [q, setQ] = React.useState('');
@@ -14651,6 +14789,7 @@ export default function AppHome() {
                                         <div className="md:w-auto md:max-w-[320px] md:h-auto">
                                           <ChatImage
                                             path={m.body.slice(8)}
+                                            placeholderSrc={localImagePreviews[m.body.slice(8)]}
                                             getUrl={getSignedUrl}
                                             className="w-full h-full md:h-auto md:object-cover cursor-zoom-in"
                                             onLoaded={() => {
@@ -14743,6 +14882,25 @@ export default function AppHome() {
                       </React.Fragment>
                     );
                   })}
+
+                  {pendingImages
+                    .filter((p) => !p.path || !dbMessages.some((m) => m.body === `imgpath:${p.path}`))
+                    .map((p) => (
+                      <div key={p.id} className="flex w-full justify-end">
+                        <div className="max-w-[82%] md:max-w-[680px] min-w-0">
+                          <div className="relative inline-block overflow-hidden rounded-[18px]" aria-busy="true" aria-label="Uploading image">
+                            <img
+                              src={p.url}
+                              alt="Uploading"
+                              className="block w-full h-full md:h-auto md:max-w-[320px] md:object-cover"
+                            />
+                            <div className="absolute inset-0 grid place-items-center bg-black/45 text-white">
+                              <Spinner size={36} thickness={3} />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
 
                   <div ref={bottomRef} />
                 </>
@@ -14882,12 +15040,17 @@ export default function AppHome() {
                       onClick={() => fileInputRef.current?.click()}
                       className={[
                         'shrink-0 h-[42px] w-[42px] md:h-[53px] md:w-[53px] rounded-[14px] transition grid place-items-center',
-                        'bg-[#262626] hover:bg-[#303030]',
-                        sendingImage ? 'opacity-60 cursor-not-allowed' : '',
+                        'bg-[#262626] hover:bg-[#303030] text-white/80',
+                        sendingImage ? 'cursor-wait' : '',
                       ].join(' ')}
                       title="Send image"
+                      aria-busy={sendingImage || undefined}
                     >
-                      <Image src="/image.svg" width={24} height={24} alt="image" className="md:w-[25px] md:h-[25px]"/>
+                      {sendingImage ? (
+                        <Spinner size={22} />
+                      ) : (
+                        <Image src="/image.svg" width={24} height={24} alt="image" className="md:w-[25px] md:h-[25px]"/>
+                      )}
                     </button>
                   )}
 
