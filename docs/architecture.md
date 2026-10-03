@@ -69,11 +69,13 @@ flowchart TB
 
 | Component             | Responsibility                                                                            |
 | --------------------- | ----------------------------------------------------------------------------------------- |
-| Nector Web            | Chat interface, wallet interaction, order creation and transaction UI                     |
+| Nector Web            | Chat interface, Phantom wallet interaction, order creation and transaction UI             |
 | Solana Smart Contract | Escrow state machine, fund custody, transaction rules, disputes and penalties             |
 | Supabase              | User profiles, usernames, contacts, messages, escrow metadata, files and realtime updates |
 | Keeper Bot            | Monitors on-chain orders and triggers timeout instructions                                |
-| Helius                | Solana RPC infrastructure                                                                 |
+| Helius                | Solana RPC infrastructure, including DAS API support for reading NFTs                     |
+| Metaplex (Umi, DAS)   | Reads NFT metadata and assets (SPL / Token-2022 via `mpl-token-metadata`, Core via `mpl-core`) |
+| CoinGecko             | Public price API used by the web app to display SOL/USD equivalents                       |
 | Solana Mainnet        | Settlement and execution layer                                                            |
 
 ---
@@ -83,7 +85,7 @@ flowchart TB
 The normal user journey begins inside the Nector chat interface.
 
 ```text
-Connect Wallet
+Connect Phantom Wallet
       │
       ▼
 Choose Username
@@ -95,6 +97,9 @@ Add Contact
 Start Conversation
       │
       ▼
+Initialize Seller Account (seller, first time only)
+      │
+      ▼
 Create Order
       │
       ├── Physical Product
@@ -103,6 +108,9 @@ Create Order
       │
       ▼
 Buyer Funds Escrow
+      │
+      ▼
+Seller Funds Escrow
       │
       ▼
 Transaction Lifecycle
@@ -116,9 +124,9 @@ Transaction Lifecycle
 Final Settlement
 ```
 
-Users first connect their wallet, select a username, add another user as a contact, and communicate through chat.
+Users first connect their Phantom wallet, select a username, add another user as a contact, and communicate through chat.
 
-An escrow order is then created directly inside the conversation.
+An escrow order is then created directly inside the conversation. The first time a user creates an order as a seller, the app initializes an on-chain seller account (`init_seller`) before calling `create_order`.
 
 The supported order types are:
 
@@ -126,7 +134,7 @@ The supported order types are:
 * Digital Product
 * NFT
 
-For physical and digital products, the buyer may need to deposit the transaction amount plus a bond. Depending on the product type, the seller may subsequently fund their side of the escrow.
+For physical and digital products, the buyer deposits the transaction amount plus a bond. The seller then funds their side of the escrow by depositing their own bond.
 
 For NFT transactions, the flow differs because the NFT itself is part of the on-chain transaction lifecycle.
 
@@ -235,6 +243,8 @@ The database stores references to on-chain objects rather than replacing the sma
 
 For example, `escrow_orders` stores the `escrow_pda`, transaction signatures, participants, product type, status and related metadata.
 
+SOL/USD prices shown in the interface are fetched by the web app from the CoinGecko public API at runtime. They are for display only and are not stored or used by the smart contract.
+
 ---
 
 # 7. Supabase Architecture
@@ -255,29 +265,48 @@ escrow_orders
 feedbacks
 ```
 
+`profiles` also stores the user's `wallet_address`, which is unique.
+
 The `escrow_orders` table connects the application layer with the blockchain layer.
 
 Important fields include:
 
 ```text
-escrow_pda
+escrow_pda                (primary key)
 tx_signature
+conversation_id
 seller_id
 buyer_id
 seller_wallet
 buyer_wallet
-type
-nft_mint
+type                      physical | digital | nft
+dispute_mode              BTR | STR (nullable)
+order_index
+nft_mint                  only allowed when type = 'nft'
 status
+
 funded_tx
 seller_funded_tx
 shipped_tx
 confirm_tx
 refund_tx
+seller_refund_tx
 dispute_tx
+seller_respond_tx
+pay_seller_tx
+
+shipping_deadline
+seller_funded_at_unix
+shipped_at_unix
+dispute_opened_at_unix
+seller_responded_at_unix
 ```
 
 This allows the frontend to associate a user-facing escrow order with its corresponding on-chain transaction.
+
+Despite its name, the `escrow_pda` column holds the address of the on-chain **Order** account (the Order PDA). The escrow account that holds the funds is derived from the Order PDA (see section 13). The Keeper finds an order in Supabase by matching this column against the Order PDA.
+
+The `status`, `type` and `dispute_mode` columns are restricted by `CHECK` constraints. The allowed `status` values are exactly the eight values listed in section 15.
 
 ---
 
@@ -293,17 +322,19 @@ Authenticated users can create and update their own profile while authenticated 
 
 ### Usernames
 
-Users can create and update their own username.
+Users can create and update their own username. All authenticated users can read usernames.
 
 Usernames are globally unique.
 
 ### Contacts
 
-A user can manage their own contacts.
+A user can read, add and remove their own contacts.
 
 ### Messages
 
 Messages are restricted to participants.
+
+The sender inserts a message as themselves, and the receiver can update a message (for example to mark it as read).
 
 A user can read a message when they are either:
 
@@ -321,9 +352,13 @@ receiver_id = auth.uid()
 
 An escrow order can only be inserted by its seller and can be read or updated by the buyer or seller participating in the order.
 
+Row Level Security limits updates by row, not by column: either participant can update any field of their own order row, including `status` and the transaction columns. For this reason the Supabase `status` is a display value and is never an authority over funds. The on-chain order state is the source of truth.
+
+The Keeper writes to Supabase with a service-role credential, which bypasses Row Level Security.
+
 ### Feedback
 
-Authenticated users can submit feedback associated with their own account.
+Authenticated users can submit feedback associated with their own account. The table is insert-only: there is no read policy for users.
 
 ---
 
@@ -343,27 +378,33 @@ The buckets have different access controls.
 
 ### `profiles`
 
-Public profile images.
+Public profile images (JPEG, PNG or WebP, up to 5 MB).
+
+Anyone can read. A user can only write the object named after their own user ID (`<userId>.jpg`).
 
 ### `chat-images`
 
-Private conversation images.
+Private conversation images (JPEG, PNG or WebP, up to 10 MB).
+
+Objects are stored under a conversation folder named `<userA>__<userB>`, and only the two participants can read or upload.
 
 ### `chat-voice`
 
-Private voice messages.
+Private voice messages (WebM, Ogg, MP4, M4A or MP3 audio, up to 20 MB).
+
+Uses the same conversation-folder access rule as `chat-images`.
 
 ### `escrow`
 
-Escrow-related images.
+Escrow-related images (JPEG, PNG or WebP, up to 10 MB).
 
-Access is restricted according to the seller and escrow participants.
+Objects are stored as `<sellerId>/<escrowPda>.jpg`. Only the seller can upload into their own folder. Reading is restricted to the buyer and seller of the matching order.
 
 ### `digital-delivery`
 
-Digital product delivery files.
+Digital product delivery files (any file type, up to 100 MB).
 
-Access is restricted to participants associated with the escrow order.
+Objects are stored as `<escrowPda>/<file>`. Only the order's seller can upload, and only the order's buyer and seller can read.
 
 ---
 
@@ -418,6 +459,8 @@ buy_core_nft
 cancel_core_nft
 ```
 
+The first set handles classic SPL Token and Token-2022 NFTs. The core set handles Metaplex Core assets.
+
 The NFT lifecycle is:
 
 ```text
@@ -443,11 +486,21 @@ NFT Listing PDA
                   Listing ends
 ```
 
+The web app reads NFT ownership and metadata through Metaplex Umi, using `mpl-token-metadata`, `mpl-core` and the DAS API. The DAS API requires an RPC endpoint with DAS support, such as Helius.
+
 ---
 
 # 12. NFT Relisting
 
 A key architectural property of the NFT system is that a previously cancelled or completed NFT listing does not permanently prevent the same NFT mint from being listed again.
+
+On-chain, each seller and mint pair has an `NftListingCounter` account whose `next_nonce` increases with every listing. The nonce is part of the listing PDA seeds:
+
+```text
+["nft_listing", seller, mint, nonce]
+```
+
+Every new listing therefore gets a new PDA, and a previous listing's address is never reused. Relisting is immediate and has no conditions. The web app reads the counter and the active listing's nonce when it lists, buys or cancels.
 
 At the database level, Nector uses a partial unique index:
 
@@ -487,6 +540,18 @@ The architecture therefore treats the **listing instance** as separate from the 
 
 The Keeper and application use the order PDA as the basis for deriving the escrow PDA.
 
+The order PDA is derived using:
+
+```text
+["order", sellerWallet, orderIndex (u64, little-endian)]
+```
+
+and the seller account PDA (which holds the seller's order counter) is derived using:
+
+```text
+["seller", sellerWallet]
+```
+
 The escrow PDA is derived using:
 
 ```text
@@ -517,6 +582,13 @@ The current Nector smart contract is implemented with Anchor V0.3.
 
 The contract contains instructions covering:
 
+### Setup
+
+```text
+init_seller
+create_order
+```
+
 ### NFT
 
 ```text
@@ -540,7 +612,6 @@ seller_fund_escrow
 ```text
 mark_shipped
 confirm_delivery
-confirm_timeout
 ```
 
 ### Cancellation
@@ -632,6 +703,25 @@ Conceptually:
 ```
 
 The exact valid transition is enforced by the smart contract rather than by the frontend.
+
+The Supabase statuses above are an application-level view. The on-chain program itself tracks 12 numeric order states:
+
+```text
+0  Created
+1  BuyerFunded
+2  SellerFunded
+3  Cancelled
+4  ShippingTimedOut
+5  MarkShipped
+6  Completed
+7  OpenDispute
+8  Refunded
+9  BuyerWonDispute
+10 SellerResponded
+11 Draw
+```
+
+The application maps these on-chain states onto the simpler statuses stored in Supabase, where a `CHECK` constraint allows only the eight values listed above. See [smart-contract.md](./smart-contract.md) for the full on-chain state machine.
 
 ---
 
@@ -763,6 +853,8 @@ SCAN_INTERVAL_MS = 10,000
 
 which corresponds to a 10-second scan interval.
 
+On every scan the Keeper fetches all `Order` accounts of the program once, and passes the same list to the four timeout handlers, which run in parallel. Each handler selects the orders that are in its relevant on-chain state (`SellerFunded`, `MarkShipped`, `OpenDispute` or `SellerResponded`).
+
 The Keeper retrieves order accounts and evaluates four timeout conditions:
 
 ```text
@@ -877,7 +969,7 @@ Keeper
        ├── Execute timeout instruction
        │
        ▼
-Transaction Signature
+Transaction confirmed
        │
        ▼
 Update escrow_orders
@@ -893,6 +985,23 @@ Nector UI
 ```
 
 This keeps the application state synchronized with the blockchain state.
+
+The Keeper looks the order up in `escrow_orders` by `escrow_pda` (the Order PDA) and updates only the `status` column. The timeout transaction signature is written to the Keeper's log, not to Supabase.
+
+It then inserts a message with `message_type = 'escrow_update'`, sent from the seller to the buyer, with the body:
+
+```text
+escrow_update:<orderPda>:<action>
+```
+
+| Timeout | On-chain call | `<action>` | Supabase status |
+| --- | --- | --- | --- |
+| Confirm | `confirmTimeout` | `confirm_timeout` | `Completed` |
+| Discussion | `draw` | `draw` | `Cancelled` |
+| Respond | `buyerWin` | `respond_timeout` | `Completed` |
+| Shipping | `shippingTimeout` | `shipping_timeout` | `Cancelled` |
+
+If the on-chain transaction fails, Supabase is not touched, and the order is evaluated again on the next scan. If the transaction succeeds but the Supabase update fails, the Keeper does not retry the update, because the order has already left the state the Keeper monitors. The on-chain state remains correct in that case.
 
 ---
 
@@ -910,7 +1019,21 @@ It verifies:
 
 The Keeper therefore has explicit safeguards against accidentally connecting to an incorrect network or program.
 
-The Keeper wallet is stored separately from application source code and must never be committed to the repository.
+The RPC network check is based on the RPC hostname (it rejects hostnames containing `devnet` or `testnet`). The program ID and executable-account checks are what confirm that the Keeper is talking to the real Nector program.
+
+The Keeper is configured through environment variables loaded from `.env.local`:
+
+```text
+SUPABASE_URL
+SUPABASE_SERVICE_ROLE_KEY
+SOLANA_RPC_URL
+```
+
+and loads its wallet keypair from a local `bot.json` file.
+
+The Keeper wallet is stored separately from application source code and must never be committed to the repository. The same applies to `.env.local`, which contains the Supabase service-role key and the RPC API key. All three should be listed in `.gitignore`.
+
+The Keeper wallet only pays transaction fees. The timeout instructions do not require a specific signer and the escrow funds are held by program-derived accounts, so the Keeper wallet has no authority over escrow funds.
 
 ---
 
@@ -1009,15 +1132,44 @@ Solana Mainnet
 
 The Keeper explicitly verifies that the configured RPC is not Devnet or Testnet before starting.
 
+The web app also uses the RPC endpoint for NFT discovery through the Metaplex DAS API (via Umi). This requires an RPC provider with DAS support; Helius provides it.
+
 ---
 
 # 26. Fee Model
 
-Nector charges:
+Nector charges a platform fee of:
 
 ```text
-1% per transaction
+1% of the product price
 ```
+
+The fee is sent directly to the platform fee wallet when each side funds the order, rather than being held in escrow.
+
+### Escrow orders (physical and digital)
+
+```text
+Buyer pays:   1% in buyer_fund_escrow
+Seller pays:  1% in seller_fund_escrow
+```
+
+The fee is charged to each side, so the platform receives 2% of the product price in total once both sides have funded. The fee is paid at funding time and is not refunded if the order is later cancelled, refunded or disputed.
+
+### NFT sales
+
+```text
+Buyer pays:    listed price
+Seller gets:   99% of the price
+Fee wallet:    1% of the price
+```
+
+### Fee wallet
+
+```text
+5f36iMWNehH9TcVuf19GFYcKsv9JrXDH1TVHvBGCmFvR
+```
+
+The fee wallet address is hard-coded in the smart contract.
 
 The fee model is part of the platform's economic architecture.
 
@@ -1033,7 +1185,7 @@ Responsible for:
 
 * User interaction
 * Displaying transaction state
-* Wallet connection
+* Wallet connection (Phantom)
 * Initiating user-authorized transactions
 
 The frontend should not be treated as the source of truth for financial state.
@@ -1071,6 +1223,8 @@ Responsible for:
 
 The Keeper should not be trusted to determine whether a timeout is valid.
 
+Because the Keeper writes to Supabase with a service-role credential, that credential must be treated as a secret and kept out of the repository and the frontend.
+
 ---
 
 # 28. Failure and Attack Considerations
@@ -1090,6 +1244,18 @@ Deterministic PDA derivation and Anchor account constraints protect the relation
 Time-based logic uses blockchain timestamps.
 
 Small timing differences may exist, but the architecture limits their intended effect to timing rather than allowing arbitrary state transitions.
+
+## Dispute Window Enforcement
+
+`open_dispute` and `respond_dispute` do not check a deadline themselves. The deadlines are enforced by the timeout instructions (`confirm_timeout` and `buyer_win`).
+
+As a result, if no one has yet submitted the matching timeout transaction, a buyer can still open a dispute after the 24-hour review window, and a seller can still respond after the 24-hour response window. The first valid transaction to land determines the outcome. The Keeper's 10-second scan interval keeps this window short in practice, but it is a property of the current contract version.
+
+## Off-chain Data Integrity
+
+Supabase Row Level Security restricts rows to the participants of an order, but it does not restrict which columns a participant can change. A participant could therefore change the `status` or transaction fields of their own order row.
+
+This does not affect funds, because escrow state and payouts are decided only by the smart contract. The interface should treat Supabase values as display data and use the on-chain order state for anything that matters financially.
 
 ## Keeper Failure
 
