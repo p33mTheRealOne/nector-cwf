@@ -266,7 +266,7 @@ Contact us through one of these channels:
 
 - Discord: https://discord.gg/2djtd6a47
 - Telegram: https://t.me/+-cEzASDTQwdhMWQ9
-- X: https://x.com/nectorchat_
+- X: https://x.com/nectorchat_/
 
 Please include:
 
