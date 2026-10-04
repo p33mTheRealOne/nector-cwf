@@ -59,7 +59,7 @@ The script resolves `.env.local`, `bot.json` and `idl/` one folder above `timeou
 
 ## Setup
 
-## 1. Clone repository
+### 1. Clone repository
 
 ```bash
 git clone https://github.com/p33mTheRealOne/nector-cwf
@@ -122,7 +122,7 @@ dist/
 node -r ts-node/register timeout/keeper.ts
 ```
 
-This runs `ts-node timeout/keeper.ts`. On start it prints a banner and keeps scanning until you stop it with `Ctrl+C`:
+This registers `ts-node` and runs `timeout/keeper.ts` directly, with no build step. On start it prints a banner and keeps scanning until you stop it with `Ctrl+C`:
 
 ```text
 Program verified: WytegETAnkDtkeo5H63QvnRPKgK39ez5MSqSBqwydPb
@@ -174,6 +174,61 @@ Tips:
 
 ---
 
+## Using your own Program ID
+
+By default the Keeper uses the IDL in `idl/nector.json`, which belongs to the **Nector Mainnet program** (`WytegETAnkDtkeo5H63QvnRPKgK39ez5MSqSBqwydPb`). To run the Keeper against **your own deployment** of the smart contract, you need to deploy the contract yourself and replace the Keeper's IDL with the IDL produced by your build.
+
+### 1. Deploy your own copy of the smart contract
+
+Follow [smart-contract/nector-smart-contract-V0.3/README.md](../smart-contract/nector-smart-contract-V0.3/README.md): run `anchor keys sync`, `anchor build` and `anchor deploy`. Note the new **program ID** that `anchor keys sync` gives you.
+
+### 2. Replace the Keeper's IDL
+
+The build writes the IDL to `target/idl/nector.json` inside the smart-contract project. Copy it over the Keeper's IDL:
+
+```bash
+cp <path to smart-contract project>/target/idl/nector.json keeper/idl/nector.json
+```
+
+Check that the `address` field is now your program ID:
+
+```bash
+grep -m1 '"address"' keeper/idl/nector.json
+```
+
+Use the IDL from the same build you deployed. An IDL from different source code can describe accounts and instructions that don't match the deployed program.
+
+### 3. Update the expected program ID
+
+At startup the Keeper compares the IDL's program ID with a constant in `timeout/keeper.ts` and refuses to run if they differ (`WRONG NECTOR PROGRAM ID!`). Change the constant to your program ID:
+
+```ts
+const EXPECTED_PROGRAM_ID =
+  "<your program ID>";
+```
+
+If you also changed the burn address or other hard-coded addresses in your copy of the contract, update `BURN_WALLET` in the same file to match.
+
+### 4. Use your own Supabase project and RPC
+
+The Keeper looks up orders in Supabase by the Order PDA of **your** program, so use a Supabase project that holds orders created through **your** deployment. Set it up with [supabase/README.md](../supabase/README.md), then put its URL and service-role key in `.env.local`. Use an RPC URL for the network you deployed to.
+
+### 5. Deploying to devnet
+
+The Keeper only accepts Mainnet RPC URLs, and its banner always prints `Network: MAINNET`. To test against a devnet deployment you must also remove the RPC hostname check in `timeout/keeper.ts` (the `try` block that validates `SOLANA_RPC_URL` and rejects `devnet` / `testnet`). Don't point a modified Keeper at Mainnet by mistake. The program ID check is what protects you from that.
+
+### Keep every component on the same program
+
+The smart contract, the Keeper and the web app must all use the same program ID and the same IDL:
+
+| Component | What to change |
+| --- | --- |
+| Smart contract | Deployed under your program ID |
+| Keeper | `idl/nector.json` and `EXPECTED_PROGRAM_ID` in `timeout/keeper.ts` |
+| Web app | `idl/nector.json` and `PROGRAM_ID` in `lib/anchorClient.ts` (see [web/Nector/README.md](../web/Nector/README.md#running-on-devnet)) |
+
+---
+
 ## Troubleshooting
 
 | Message | Cause and fix |
@@ -181,9 +236,9 @@ Tips:
 | `Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY in .env.local` | `.env.local` is missing, in the wrong folder, or incomplete. It must be in `keeper/`, next to `package.json`. |
 | `Missing SOLANA_RPC_URL in .env.local` | Add `SOLANA_RPC_URL`. There is no default RPC. |
 | `Invalid SOLANA_RPC_URL: Devnet/Testnet RPC is not allowed` | The RPC hostname contains `devnet` or `testnet`. Use a Mainnet RPC. |
-| `Keeper wallet not found: .../bot.json` | Create `keeper/bot.json` (see step 2). |
+| `Keeper wallet not found: .../bot.json` | Create `keeper/bot.json` (see step 3). |
 | `Unexpected token` / JSON parse error when reading `bot.json` | The file is still the placeholder text, or isn't a valid keypair JSON array. Replace it. |
-| `WRONG NECTOR PROGRAM ID!` | `idl/nector.json` doesn't match the expected Mainnet program. Use the IDL from this repository. |
+| `WRONG NECTOR PROGRAM ID!` | `idl/nector.json` doesn't match the expected Mainnet program. Use the IDL from this repository, or, if you deployed your own program, follow [Using your own Program ID](#using-your-own-program-id). |
 | `Program ... is not deployed on this network` | The RPC is not pointing at Mainnet. |
 | `Confirm timeout failed` / `Draw failed` / `BuyerWin failed` / `Shipping timeout failed` with `NotExpired` or `NotReached` | The deadline hasn't passed on-chain yet, or the order was already settled by someone else. Usually harmless. |
 | `Not found on Supabase: <orderPda>` | The transaction went through, but no `escrow_orders` row matches that order, so Supabase was not updated. |
