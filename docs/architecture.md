@@ -1351,24 +1351,37 @@ Seller Response Window
 The repository separates the major system components:
 
 ```text
-nector.chat/
+nector-cwf/
+│
+├── README.md
 │
 ├── web/
 │   └── Nector/
 │       └── Production Web Application
 │
 ├── smart-contract/
-│   └── nector/
+│   └── nector-smart-contract-V0.3/
+│       ├── README.md
+│       ├── Anchor.toml
 │       ├── programs/
 │       │   └── nector-smart-contract-V0.3/
+│       │       └── src/
+│       │           ├── lib.rs
+│       │           └── instructions/
 │       └── tests/
+│           └── how_to_use/
 │
 ├── supabase/
 │   └── schema.sql
 │
 ├── keeper/
-│   ├── keeper.ts
-│   └── idl/
+│   ├── README.md
+│   ├── package.json
+│   ├── tsconfig.json
+│   ├── idl/
+│   │   └── nector.json
+│   └── timeout/
+│       └── keeper.ts
 │
 └── docs/
     ├── architecture.md
