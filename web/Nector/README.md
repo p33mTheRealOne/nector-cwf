@@ -172,12 +172,70 @@ Nector/
 
 ---
 
+## Using your own Program ID
+
+By default the app uses the IDL in `idl/nector.json`, which belongs to the **Nector Mainnet program** (`WytegETAnkDtkeo5H63QvnRPKgK39ez5MSqSBqwydPb`). To use the app with **your own deployment** of the smart contract, you need to deploy the contract yourself and replace the app's IDL with the IDL produced by your build.
+
+### 1. Deploy your own copy of the smart contract
+
+Follow [smart-contract/nector-smart-contract-V0.3/README.md](../../smart-contract/nector-smart-contract-V0.3/README.md): run `anchor keys sync`, `anchor build` and `anchor deploy`. Note the new **program ID** that `anchor keys sync` gives you.
+
+### 2. Replace the app's IDL
+
+The build writes the IDL to `target/idl/nector.json` inside the smart-contract project. Copy it over the app's IDL:
+
+```bash
+cp <path to smart-contract project>/target/idl/nector.json web/Nector/idl/nector.json
+```
+
+Check that the `address` field is now your program ID:
+
+```bash
+grep -m1 '"address"' web/Nector/idl/nector.json
+```
+
+Use the IDL from the same build you deployed. An IDL from different source code can describe accounts and instructions that don't match the deployed program.
+
+### 3. Update `PROGRAM_ID` in `lib/anchorClient.ts`
+
+The program ID is also set as a separate constant in `lib/anchorClient.ts`:
+
+```ts
+export const PROGRAM_ID = new PublicKey(
+  "<your program ID>"
+);
+```
+
+This is required even after you replace the IDL. The Anchor client takes the program ID from the IDL, but `lib/pda.ts` derives the seller, order and escrow addresses from `PROGRAM_ID`. If the two differ, the app derives addresses for the wrong program and transactions fail.
+
+If you changed the platform fee wallet in your copy of the contract, also update `NFT_FEE_WALLET` near the top of `app/Chat/AppHome.tsx` to match.
+
+### 4. Restart the app
+
+Restart `npm run dev` (or rebuild with `npm run build`) so the new IDL and constant are picked up.
+
+### 5. Use your own Supabase project and RPC
+
+Use a Supabase project that holds orders created through **your** deployment ([supabase/README.md](../../supabase/README.md)), and set `SOLANA_RPC_URL` to an RPC URL for the network you deployed to.
+
+### Keep every component on the same program
+
+The smart contract, the web app and the Keeper must all use the same program ID and the same IDL:
+
+| Component | What to change |
+| --- | --- |
+| Smart contract | Deployed under your program ID |
+| Web app | `idl/nector.json` and `PROGRAM_ID` in `lib/anchorClient.ts` |
+| Keeper | `idl/nector.json` and `EXPECTED_PROGRAM_ID` in `timeout/keeper.ts` (see [keeper/README.md](../../keeper/README.md#using-your-own-program-id)) |
+
+---
+
 ## Running on devnet
 
 To test without real money you need your own copy of the program on devnet.
 
 1. Build and deploy the program to devnet under your own program ID. See [smart-contract/nector-smart-contract-V0.3/README.md](../../smart-contract/nector-smart-contract-V0.3/README.md).
-2. Replace the program ID in **both** `lib/anchorClient.ts` (`PROGRAM_ID`) and the `address` field of `idl/nector.json`.
+2. Replace the program ID in **both** `lib/anchorClient.ts` (`PROGRAM_ID`) and the `address` field of `idl/nector.json`. See [Using your own Program ID](#using-your-own-program-id) for the full steps.
 3. Set `SOLANA_RPC_URL` to a devnet RPC endpoint.
 4. Use your own Supabase project.
 
@@ -210,7 +268,7 @@ npm run start
 | Redirected away after sign-in, or the callback loops back to `/auth` | The Site URL or redirect URL in Supabase doesn't match the address you are using. |
 | Phantom does not appear or sign-in does nothing | Install the Phantom extension and unlock it. Only Phantom is supported. |
 | NFTs don't load, or `Method not found` | Your RPC provider doesn't support the DAS API. Use a DAS-capable provider such as Helius. |
-| Transactions fail on a fresh deployment | The wallet has no SOL, or the program ID in `lib/anchorClient.ts` and `idl/nector.json` doesn't match a deployed program. |
+| Transactions fail on a fresh deployment | The wallet has no SOL, or the program ID in `lib/anchorClient.ts` and `idl/nector.json` doesn't match a deployed program. See [Using your own Program ID](#using-your-own-program-id). |
 | Chat or orders don't update live | Realtime isn't enabled on `messages` and `escrow_orders`. Re-run the realtime section of `supabase/schema.sql`. |
 
 ---
