@@ -16,7 +16,7 @@ It is based on the source code in this repository. See [architecture.md](./archi
 | External security audit | **None.** The contract has never been audited. |
 | Program upgrade authority | **A single wallet.** The program is upgradeable (see [section 3](#3-upgrade-authority)). |
 | Custody of escrow funds | Program-derived accounts (PDAs). No Nector-held private key can release escrow funds directly. |
-| Automated tests | Yes, one test file per instruction in `smart-contract/nector/tests/` |
+| Tests | Manual devnet test scripts, one per instruction, in `smart-contract/nector-smart-contract-V0.3/tests/`. There is no automated assertion suite. |
 
 **Use Nector only with funds you can afford to lose.**
 
@@ -264,9 +264,9 @@ If you find a security issue, please report it privately before disclosing it pu
 
 Contact us through one of these channels:
 
-- Discord: https://discord.gg/2djtd6a47
-- Telegram: https://t.me/+-cEzASDTQwdhMWQ9
-- X: https://x.com/nectorchat_/
+- Discord: `<add handle or invite link>`
+- Telegram: `<add handle>`
+- X: `<add handle>`
 
 Please include:
 
