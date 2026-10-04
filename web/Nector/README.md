@@ -43,7 +43,7 @@ git clone https://github.com/p33mTheRealOne/nector-cwf
 ### 2. Install dependencies
 
 ```bash
-cd web/Nector
+cd ~/nector-cwf/web/Nector
 npm install
 ```
 
