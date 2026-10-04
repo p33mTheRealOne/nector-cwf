@@ -159,7 +159,7 @@ For a real deployment, run the Keeper under a process manager so it restarts aft
 
 ```bash
 npm install -g pm2
-cd keeper
+cd nector-cwf/keeper
 pm2 start npm --name nector-keeper -- run keeper
 pm2 save
 pm2 startup          # follow the printed command to start on boot
