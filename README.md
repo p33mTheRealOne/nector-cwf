@@ -201,13 +201,15 @@ The full threat model is in [docs/security.md](docs/security.md).
 ## Repository structure
 
 ```text
-nector.chat/
-├── web/Nector/                      # Web application
-├── smart-contract/nector/           # Anchor program and tests
-│   ├── programs/nector-smart-contract-V0.3/
-│   └── tests/
-├── supabase/schema.sql              # Tables, RLS policies, storage, realtime
-├── keeper/                          # Keeper Bot and IDL
+nector-cwf/
+├── web/Nector/                                  # Web application
+├── smart-contract/nector-smart-contract-V0.3/   # Anchor program
+│   ├── programs/nector-smart-contract-V0.3/     #   program source
+│   └── tests/                                   #   devnet scripts, one per instruction
+├── supabase/schema.sql                          # Tables, RLS policies, storage, realtime
+├── keeper/                                      # Keeper Bot
+│   ├── timeout/keeper.ts                        #   the bot
+│   └── idl/nector.json                          #   program IDL
 └── docs/
     ├── architecture.md
     ├── smart-contract.md
@@ -222,7 +224,7 @@ Open the live app, connect a **Phantom** wallet, choose a username and start a c
 
 ### Try the smart contract on devnet
 
-The `tests/` folder contains one command-line script per instruction, which you run against your own devnet deployment. It is not an automated test suite, so `anchor test` is not used. Build, deploy and script instructions are in [smart-contract/README.md](smart-contract/README.md).
+The `tests/` folder contains one command-line script per instruction, which you run against your own devnet deployment. It is not an automated test suite, so `anchor test` is not used. Build, deploy and script instructions are in [smart-contract/nector-smart-contract-V0.3/README.md](smart-contract/nector-smart-contract-V0.3/README.md).
 
 ### Run the web app locally
 
