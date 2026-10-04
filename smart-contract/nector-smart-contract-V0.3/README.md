@@ -9,7 +9,7 @@ The on-chain program behind Nector: a non-custodial escrow for physical products
 | Dependencies | `anchor-spl` (Token, Associated Token, Token-2022), `mpl-core` 0.11.1 |
 | Audit | **Not audited** |
 
-For how the program works (accounts, states, payouts, fees), see [docs/smart-contract.md](../docs/smart-contract.md). This file explains how to **build it and try it yourself**.
+For how the program works (accounts, states, payouts, fees), see [docs/smart-contract.md](../../docs/smart-contract.md). This file explains how to **build it and try it yourself**.
 
 ---
 
@@ -247,7 +247,7 @@ nector-smart-contract-V0.3/
 | `ANCHOR_WALLET is not set` or a file-not-found error | Export `ANCHOR_WALLET` with the full path to a keypair file. |
 | `Attempt to debit an account but found no record of a prior credit` | The wallet has no devnet SOL. Airdrop some. |
 | `AccountNotInitialized` or "program does not exist" | The program isn't deployed to devnet under the ID in your IDL. Re-run steps 3 and `anchor build`. |
-| `InvalidState` | The order isn't in the state the instruction needs. Check the order flow in [docs/smart-contract.md](../docs/smart-contract.md). |
+| `InvalidState` | The order isn't in the state the instruction needs. Check the order flow in [docs/smart-contract.md](../../docs/smart-contract.md). |
 | `ShippingNotExpired`, `ConfirmNotExpired`, `DisputeDeadlineNotReached` or `DiscussionNotReached` | A timeout script was run before its deadline. This is expected. Wait and retry. |
 | Wrong order index | Use the `Order index` printed by `create_order.ts`, not a number from the examples in `how_to_use/`. |
 | `anchor deploy` tries to use Mainnet | `Anchor.toml` still says `cluster = "mainnet"`. Change it to devnet (step 2). |
@@ -259,5 +259,5 @@ Some scripts, such as `create_order.ts`, still contain a hard-coded program ID f
 ## Security notes
 
 - The program has **not been audited**.
-- The program is upgradeable and its upgrade authority is held by a single wallet. See [docs/security.md](../docs/security.md).
+- The program is upgradeable and its upgrade authority is held by a single wallet. See [docs/security.md](../../docs/security.md).
 - Never commit wallet keypairs (`seller.json`, `buyer.json`, `target/deploy/*-keypair.json`) or any file that contains a private key.
