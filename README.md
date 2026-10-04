@@ -6,7 +6,7 @@ Built for the **Colosseum Crypto World's Fair Hackathon**.
 
 | | |
 | --- | --- |
-| Live app | `<add link>` |
+| Live app | nector.chat |
 | Demo video | `<add link>` |
 | Pitch deck | `<add link>` |
 | Program (Solana Mainnet) | [`WytegETAnkDtkeo5H63QvnRPKgK39ez5MSqSBqwydPb`](https://explorer.solana.com/address/WytegETAnkDtkeo5H63QvnRPKgK39ez5MSqSBqwydPb) |
