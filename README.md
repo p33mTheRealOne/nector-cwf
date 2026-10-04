@@ -220,13 +220,9 @@ nector.chat/
 
 Open the live app, connect a **Phantom** wallet, choose a username and start a chat. A first-time seller will also be asked to create an on-chain seller account before the first order.
 
-### Run the smart-contract tests
+### Try the smart contract on devnet
 
-```bash
-cd smart-contract/nector
-yarn install
-anchor test
-```
+The `tests/` folder contains one command-line script per instruction, which you run against your own devnet deployment. It is not an automated test suite, so `anchor test` is not used. Build, deploy and script instructions are in [smart-contract/README.md](smart-contract/README.md).
 
 ### Run the web app locally
 
