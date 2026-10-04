@@ -119,7 +119,7 @@ dist/
 ## Run
 
 ```bash
-npm run keeper
+node -r ts-node/register timeout/keeper.ts
 ```
 
 This runs `ts-node timeout/keeper.ts`. On start it prints a banner and keeps scanning until you stop it with `Ctrl+C`:
