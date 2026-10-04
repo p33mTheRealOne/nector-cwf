@@ -1354,24 +1354,48 @@ The repository separates the major system components:
 nector-cwf/
 │
 ├── README.md
+├── LICENSE
+├── .gitignore
+├── .env.example
 │
 ├── web/
 │   └── Nector/
-│       └── Production Web Application
+│       ├── README.md
+│       ├── package.json
+│       ├── next.config.ts
+│       ├── app/                      # pages and API routes
+│       │   ├── page.tsx
+│       │   ├── Chat/                 # chat and escrow interface
+│       │   ├── auth/  onboarding/  about/  privacy-terms/  docs/
+│       │   └── api/                  # auth, profile, solana-rpc, nft-image
+│       ├── components/               # landing page and docs components
+│       ├── lib/
+│       │   ├── anchorClient.ts
+│       │   ├── pda.ts
+│       │   └── supabase/
+│       ├── idl/
+│       │   └── nector.json
+│       └── public/                   # static assets, whitepaper PDF
 │
 ├── smart-contract/
 │   └── nector-smart-contract-V0.3/
 │       ├── README.md
 │       ├── Anchor.toml
+│       ├── Cargo.toml
+│       ├── Cargo.lock
+│       ├── package.json
+│       ├── tsconfig.json
 │       ├── programs/
 │       │   └── nector-smart-contract-V0.3/
+│       │       ├── Cargo.toml
 │       │       └── src/
 │       │           ├── lib.rs
-│       │           └── instructions/
-│       └── tests/
+│       │           └── instructions/ # one file per instruction
+│       └── tests/                    # one devnet script per instruction
 │           └── how_to_use/
 │
 ├── supabase/
+│   ├── README.md
 │   └── schema.sql
 │
 ├── keeper/
