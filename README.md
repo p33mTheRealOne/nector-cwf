@@ -202,11 +202,16 @@ The full threat model is in [docs/security.md](docs/security.md).
 
 ```text
 nector-cwf/
-├── web/Nector/                                  # Web application
+├── README.md
+├── LICENSE
+├── .gitignore
+├── .env.example                                 # example environment variables
+├── web/Nector/                                  # Web application (Next.js)
 ├── smart-contract/nector-smart-contract-V0.3/   # Anchor program
 │   ├── programs/nector-smart-contract-V0.3/     #   program source
 │   └── tests/                                   #   devnet scripts, one per instruction
-├── supabase/schema.sql                          # Tables, RLS policies, storage, realtime
+├── supabase/                                    # Database and storage
+│   └── schema.sql                               #   tables, RLS policies, storage, realtime
 ├── keeper/                                      # Keeper Bot
 │   ├── timeout/keeper.ts                        #   the bot
 │   └── idl/nector.json                          #   program IDL
@@ -215,6 +220,8 @@ nector-cwf/
     ├── smart-contract.md
     └── security.md
 ```
+
+Each of `web/Nector`, `smart-contract/nector-smart-contract-V0.3`, `supabase` and `keeper` has its own `README.md` with setup instructions.
 
 ## Getting started
 
@@ -231,7 +238,7 @@ The `tests/` folder contains one command-line script per instruction, which you 
 ```bash
 cd web/Nector
 npm install
-cp .env.example .env.local   # add your Supabase and Solana RPC settings
+cp ../../.env.example .env.local   # add your Supabase and Solana RPC settings
 npm run dev
 ```
 
@@ -274,4 +281,4 @@ These are roadmap items and are not part of the code in this repository.
 
 ## License
 
-`<Add license, for example MIT.>`
+MIT. See [LICENSE](LICENSE).
