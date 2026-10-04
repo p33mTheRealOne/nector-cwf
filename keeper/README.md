@@ -77,8 +77,8 @@ npm install
 `bot.json` must be a standard Solana keypair file: a JSON array of 64 numbers. Generate one with the Solana CLI:
 
 ```bash
-solana-keygen new --outfile bot.json --no-bip39-passphrase
-solana address -k bot.json     # prints the Keeper's public address
+solana-keygen new --outfile ~/nector-cwf/keeper/bot.json --no-bip39-passphrase
+solana address -k ~/nector-cwf/keeper/bot.json     # prints the Keeper's public address
 ```
 
 Then send a small amount of SOL to that address so it can pay fees. If you already have a keypair file, copy it to `keeper/bot.json` instead.
