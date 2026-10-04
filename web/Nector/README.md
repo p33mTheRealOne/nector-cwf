@@ -34,14 +34,20 @@ For the full system design see [docs/architecture.md](../../docs/architecture.md
 
 ## Setup
 
-### 1. Install dependencies
+### 1. Clone repository
+ 
+```bash
+git clone https://github.com/p33mTheRealOne/nector-cwf
+```
+
+### 2. Install dependencies
 
 ```bash
 cd web/Nector
 npm install
 ```
 
-### 2. Create the Supabase project
+### 3. Create the Supabase project
 
 1. Create a project at [supabase.com](https://supabase.com).
 2. Open the **SQL editor** and run the whole of [`supabase/schema.sql`](../../supabase/schema.sql). It creates the tables, Row Level Security policies, the five storage buckets and the realtime publication.
@@ -49,7 +55,7 @@ npm install
 4. Under **Authentication → URL Configuration**, set the **Site URL** to where the app runs (for local development, `http://localhost:3000`) and add `<site url>/auth/callback` to the redirect URLs.
 5. Copy the project URL, the **anon** key and the **service-role** key from **Project Settings → API**.
 
-### 3. Create `.env.local`
+### 4. Create `.env.local`
 
 Create `web/Nector/.env.local`:
 
@@ -70,7 +76,7 @@ NEXT_PUBLIC_SITE_URL=http://localhost:3000
 | `NEXT_PUBLIC_SITE_URL` | Yes | Public URL of the site, used when building auth redirects. If empty, relative URLs are used. |
 | `SUPABASE_URL` | No | Optional. The avatar-sync route uses it if set, otherwise `NEXT_PUBLIC_SUPABASE_URL`. |
 
-### 4. Run
+### 5. Run
 
 ```bash
 npm run dev
