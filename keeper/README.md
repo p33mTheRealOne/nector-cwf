@@ -59,14 +59,20 @@ The script resolves `.env.local`, `bot.json` and `idl/` one folder above `timeou
 
 ## Setup
 
-### 1. Install dependencies
+## 1. Clone repository
 
 ```bash
-cd keeper
+git clone https://github.com/p33mTheRealOne/nector-cwf
+```
+
+### 2. Install dependencies
+
+```bash
+cd nector-cwf/keeper
 npm install
 ```
 
-### 2. Create the Keeper wallet
+### 3. Create the Keeper wallet
 
 `bot.json` must be a standard Solana keypair file: a JSON array of 64 numbers. Generate one with the Solana CLI:
 
@@ -79,7 +85,7 @@ Then send a small amount of SOL to that address so it can pay fees. If you alrea
 
 > The `bot.json` in this repository is only a placeholder. The Keeper will fail to start until you replace it with a real keypair file.
 
-### 3. Create `.env.local`
+### 4. Create `.env.local`
 
 Create `keeper/.env.local`:
 
@@ -97,7 +103,7 @@ SOLANA_RPC_URL=https://mainnet.helius-rpc.com/?api-key=<your key>
 
 All three are required.
 
-### 4. Keep secrets out of git
+### 5. Keep secrets out of git
 
 Add this to `.gitignore` before you commit anything:
 
