@@ -68,7 +68,7 @@ git clone https://github.com/p33mTheRealOne/nector-cwf
 ### 2. Install dependencies
 
 ```bash
-cd nector-cwf/keeper
+cd ~/nector-cwf/keeper
 npm install
 ```
 
@@ -87,7 +87,7 @@ Then send a small amount of SOL to that address so it can pay fees. If you alrea
 
 ### 4. Create `.env.local`
 
-Create `keeper/.env.local`:
+Create `~/nector-cwf/keeper/.env.local`:
 
 ```bash
 SUPABASE_URL=https://<your-project>.supabase.co
