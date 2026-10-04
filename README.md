@@ -1,3 +1,5 @@
+<img width="1500" height="500" alt="1500x500" src="https://github.com/user-attachments/assets/44f15324-21ad-42ee-b2e1-301c10eeed1d" />
+
 # Nector
 
 **Chat-native, non-custodial escrow on Solana. Safe trades between strangers, as easy as sending a message.**
