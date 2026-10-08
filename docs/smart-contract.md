@@ -28,7 +28,7 @@ nector-smart-contract-V0.3/
 ├── programs/nector-smart-contract-V0.3/src/
 │   ├── lib.rs                  # program entrypoints, accounts, enums, errors, create_order
 │   └── instructions/           # one file per instruction
-└── tests/                      # one test per instruction + how_to_use/ walkthroughs
+└── tests/                      # one devnet script per instruction + how_to_use/ walkthroughs
 ```
 
 ---
@@ -270,14 +270,18 @@ A Solana program cannot wake itself at a future time, so something must submit a
 
 ## 12. Testing
 
-Tests live in `tests/` (one file per instruction, plus `create_order.ts`). Step-by-step walkthroughs are in `tests/how_to_use/`.
+The `tests/` folder contains one TypeScript script per instruction (plus `create_order.ts`). They are **manual command-line scripts that run against devnet**, not an automated assertion suite. Each script connects to `https://api.devnet.solana.com`. Step-by-step walkthroughs are in `tests/how_to_use/`, and `workflow.txt` there describes the full escrow flow.
 
 ```bash
 yarn install
-anchor test
+anchor build                         # generates target/idl/nector.json, which the scripts import
+export ANCHOR_WALLET=~/path/to/seller.json
+npx ts-node -T tests/create_order.ts BTR physical "Order name" <buyer wallet> 0.05 24
 ```
 
-The test script in `Anchor.toml` runs `ts-mocha` over `tests/**/*.ts`.
+The arguments of `create_order.ts` are: mode (`BTR` or `STR`), product type (`physical` or `digital`), order name, buyer wallet, price in SOL, and shipping hours.
+
+`Anchor.toml` currently sets `cluster = "mainnet"`. Check the cluster before running any `anchor` command that sends transactions, so that you do not deploy or transact on mainnet by accident.
 
 ---
 
