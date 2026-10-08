@@ -50,7 +50,7 @@ npm install
 ### 3. Create the Supabase project
 
 1. Create a project at [supabase.com](https://supabase.com).
-2. Open the **SQL editor** and run the whole of [`supabase/schema.sql`](../../supabase/schema.sql). It creates the tables, Row Level Security policies, the five storage buckets and the realtime publication.
+2. Open the **SQL editor** and run the whole of [`supabase/schema.sql`](../../supabase/schema.sql). It creates the tables (including `auth_nonces`, which Phantom sign-in needs), Row Level Security policies, the five storage buckets and the realtime publication.
 3. Under **Authentication**, make sure the **Email** provider is enabled. Wallet sign-in creates a Supabase user behind the scenes and signs it in with a magic-link token.
 4. Under **Authentication → URL Configuration**, set the **Site URL** to where the app runs (for local development, `http://localhost:3000`) and add `<site url>/auth/callback` to the redirect URLs.
 5. Copy the project URL, the **anon** key and the **service-role** key from **Project Settings → API**.
@@ -73,7 +73,7 @@ NEXT_PUBLIC_SITE_URL=http://localhost:3000
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Yes | Public anon key. Access is limited by Row Level Security. |
 | `SUPABASE_SERVICE_ROLE_KEY` | **No, server only** | Bypasses Row Level Security. Used by the sign-up, wallet sign-in and avatar-sync API routes. |
 | `SOLANA_RPC_URL` | **No, server only** | RPC endpoint used by the `/api/solana-rpc` proxy. Keeps your RPC API key out of the browser. |
-| `NEXT_PUBLIC_SITE_URL` | Yes | Public URL of the site, used when building auth redirects. If empty, relative URLs are used. |
+| `NEXT_PUBLIC_SITE_URL` | Yes | Public URL of the site. Used for auth redirects and as the domain in the wallet sign-in message. **Set it in production.** If empty, the domain is read from request headers, which is less safe. |
 | `SUPABASE_URL` | No | Optional. The avatar-sync route uses it if set, otherwise `NEXT_PUBLIC_SUPABASE_URL`. |
 
 ### 5. Run
@@ -103,10 +103,13 @@ There are two ways in:
 
 **Phantom wallet**
 
-1. The user clicks sign in with Phantom and signs a short message.
-2. The browser posts the wallet address, signature and message to `/api/auth/phantom`.
-3. The server checks the signature, creates (or finds) a Supabase user for that wallet, and returns a one-time magic-link token.
-4. The browser exchanges that token for a Supabase session.
+1. The user clicks sign in with Phantom. The browser asks `/api/auth/nonce` for a login message.
+2. The server creates a random nonce and a message that names the site's domain, the wallet and a 5-minute expiry. It stores the message in the `auth_nonces` table and returns it.
+3. Phantom signs exactly that message.
+4. The browser posts the wallet address, the signature and the nonce to `/api/auth/phantom`.
+5. The server checks that the nonce exists, is unused and unexpired, and that the wallet, domain and signature match. It marks the nonce as used, so it works only once.
+6. The server creates (or finds) a Supabase user for that wallet, saves the wallet on the user's profile, and returns a one-time magic-link token.
+7. The browser exchanges that token for a Supabase session.
 
 **Email and password**
 
@@ -132,7 +135,8 @@ After the first sign-in the user picks a username on `/onboarding/username`.
 
 | Route | Purpose |
 | --- | --- |
-| `POST /api/auth/phantom` | Verify a wallet signature and return a sign-in token |
+| `POST /api/auth/nonce` | Create a one-time login message for a wallet and store it in `auth_nonces` |
+| `POST /api/auth/phantom` | Verify the signed login message (nonce, wallet, domain, expiry, signature) and return a sign-in token |
 | `POST /api/auth/signup` | Create an email and password account with a unique username |
 | `POST /api/auth/set-username` | Reserve a username for the signed-in user (lowercase letters, digits, `.` and `_`, 3 to 20 characters) |
 | `POST /api/profile/sync-avatar` | Sync the profile avatar after sign-in |
@@ -155,7 +159,7 @@ Nector/
 │   ├── docs/                    # documentation pages
 │   ├── about/  privacy-terms/
 │   └── api/
-│       ├── auth/                # phantom, signup, set-username
+│       ├── auth/                # nonce, phantom, signup, set-username
 │       ├── profile/sync-avatar/
 │       ├── solana-rpc/          # allow-listed RPC proxy
 │       └── nft-image/
@@ -163,6 +167,7 @@ Nector/
 ├── lib/
 │   ├── anchorClient.ts          # program ID, Anchor client, transaction helpers
 │   ├── pda.ts                   # PDA derivation
+│   ├── siws.ts                  # wallet sign-in message helpers
 │   └── supabase/                # browser and server clients
 ├── idl/nector.json              # Nector program IDL
 ├── public/                      # static assets, whitepaper PDF
@@ -267,6 +272,9 @@ npm run start
 | Queries fail with "relation does not exist" | `supabase/schema.sql` hasn't been run in this Supabase project. |
 | Redirected away after sign-in, or the callback loops back to `/auth` | The Site URL or redirect URL in Supabase doesn't match the address you are using. |
 | Phantom does not appear or sign-in does nothing | Install the Phantom extension and unlock it. Only Phantom is supported. |
+| Phantom sign-in fails with `INVALID_OR_EXPIRED_NONCE` | The login message expired (5 minutes), was already used, or was issued for a different site. Sign in again. If it keeps failing, check that `NEXT_PUBLIC_SITE_URL` matches the address you use. |
+| Phantom sign-in fails with `NONCE_FAILED` or `relation "auth_nonces" does not exist` | The `auth_nonces` table is missing. Re-run `supabase/schema.sql` (section 26). |
+| Phantom sign-in fails with `TOO_MANY_REQUESTS` or `SITE_NOT_CONFIGURED` | `TOO_MANY_REQUESTS`: too many unfinished login attempts for this wallet. Wait a few minutes. `SITE_NOT_CONFIGURED`: set `NEXT_PUBLIC_SITE_URL`. |
 | NFTs don't load, or `Method not found` | Your RPC provider doesn't support the DAS API. Use a DAS-capable provider such as Helius. |
 | Transactions fail on a fresh deployment | The wallet has no SOL, or the program ID in `lib/anchorClient.ts` and `idl/nector.json` doesn't match a deployed program. See [Using your own Program ID](#using-your-own-program-id). |
 | Chat or orders don't update live | Realtime isn't enabled on `messages` and `escrow_orders`. Re-run the realtime section of `supabase/schema.sql`. |
@@ -280,5 +288,6 @@ npm run start
 - The anon key is meant to be public. Row Level Security on the Supabase tables is what protects the data.
 - Add a `.gitignore` that excludes `.env.local`, `.env*.local`, `node_modules/` and `.next/`, and never commit environment files.
 - The app never holds user keys. Every escrow transaction is built in the browser and signed by the user in Phantom.
+- Phantom sign-in uses a one-time message issued by the server (`/api/auth/nonce`), stored in `auth_nonces` and valid for 5 minutes, so an old signature can't be replayed to log in. Set `NEXT_PUBLIC_SITE_URL` in production so the domain in that message is fixed.
 
 See [docs/security.md](../../docs/security.md) for the full security model.
