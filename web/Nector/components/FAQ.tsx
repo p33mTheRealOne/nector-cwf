@@ -26,7 +26,7 @@ const faqs = [
   {
     question: "Is this escrow safe for large transactions?",
     answer:
-      "Yes. Escrow rules are enforced by smart contracts, not human trust. This makes it suitable for high-value online transactions where trust is critical.",
+      "Escrow rules are enforced by smart contracts, not human trust. The contract has not been audited yet, so we recommend starting with small amounts.",
   },
   {
     question: "Do I need crypto knowledge to use this escrow?",
