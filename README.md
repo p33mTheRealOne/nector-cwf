@@ -178,6 +178,7 @@ What the design gives you:
 - checked arithmetic and an escrow-balance check before every payout
 - fixed fee and burn addresses, so a caller can't substitute a recipient
 - permissionless timeouts, so settlement doesn't depend on one operator
+- wallet sign-in with one-time messages issued by the server that expire after 5 minutes, so old signatures can't be replayed
 
 Honest limitations of the current release:
 
