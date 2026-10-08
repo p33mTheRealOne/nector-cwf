@@ -263,7 +263,11 @@ messages
 escrow_orders
 
 feedbacks
+
+auth_nonces
 ```
+
+`auth_nonces` holds the one-time login messages used for wallet sign-in. It has no user policies, so only the server (using the service-role key) can read or write it.
 
 `profiles` also stores the user's `wallet_address`, which is unique.
 
@@ -359,6 +363,33 @@ The Keeper writes to Supabase with a service-role credential, which bypasses Row
 ### Feedback
 
 Authenticated users can submit feedback associated with their own account. The table is insert-only: there is no read policy for users.
+
+### Auth Nonces
+
+`auth_nonces` has Row Level Security enabled and no policies, and users have no grants on it. Only the server's API routes (service-role key) can access it.
+
+### Wallet Sign-In
+
+Wallet login uses a one-time message issued by the server:
+
+```text
+Browser                    Server                         Supabase
+   │  POST /api/auth/nonce    │                               │
+   │ ───────────────────────► │  create nonce + message       │
+   │                          │ ────────────────────────────► │ auth_nonces
+   │ ◄─────────────────────── │  { nonce, message }           │
+   │                                                          │
+   │  Phantom signs the message                               │
+   │                                                          │
+   │  POST /api/auth/phantom  │                               │
+   │  { wallet, signature,    │  check nonce, wallet, domain, │
+   │    nonce }               │  expiry, signature            │
+   │ ───────────────────────► │  mark nonce used (once)       │
+   │                          │ ────────────────────────────► │
+   │ ◄─────────────────────── │  sign-in token                │
+```
+
+The message names the site's domain, the wallet and a 5-minute expiry. A nonce can be used once, so an old signature can't be replayed. See [security.md](./security.md) for details.
 
 ---
 
@@ -1372,6 +1403,7 @@ nector-cwf/
 │       ├── lib/
 │       │   ├── anchorClient.ts
 │       │   ├── pda.ts
+│       │   ├── siws.ts               # wallet sign-in message helpers
 │       │   └── supabase/
 │       ├── idl/
 │       │   └── nector.json
