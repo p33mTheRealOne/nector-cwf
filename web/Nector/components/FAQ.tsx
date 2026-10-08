@@ -11,17 +11,17 @@ const faqs = [
   {
     question: "What if the buyer receives the item but doesn’t confirm?",
     answer:
-      "Once the seller marks the item as shipped, a confirmation timer starts.If the buyer doesn’t respond within the time window, the funds are automatically released to the seller.",
+      "Once the seller marks the item as shipped, a confirmation timer starts. If the buyer doesn’t respond within the time window, the funds are automatically released to the seller.",
   },
   {
     question: "What happens if there is a dispute between buyer and seller?",
     answer:
-      "In case of a dispute, funds are temporarily locked while the contract follows predefined rules.There is no admin decision — outcomes are determined by on-chain logic and time-based rules.",
+      "In case of a dispute, funds are temporarily locked while the contract follows predefined rules. There is no admin decision — outcomes are determined by on-chain logic and time-based rules.",
   },
   {
     question: "Is this escrow service non-custodial?",
     answer:
-      "Yes. Nector never holds user funds.All payments are locked in a Solana smart contract and can only be released according to the contract rules.",
+      "Yes. Nector never holds user funds. All payments are locked in a Solana smart contract and can only be released according to the contract rules.",
   },
   {
     question: "Is this escrow safe for large transactions?",
