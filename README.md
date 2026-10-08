@@ -274,11 +274,23 @@ These are roadmap items and are not part of the code in this repository.
 
 ## Hackathon scope
 
-`<Describe what was built during the Colosseum Crypto World's Fair Hackathon and what existed before.>`
+Most of Nector’s core product was already built before the hackathon, as we had previously participated in the Colosseum Frontier Hackathon.
+
+During the Crypto World’s Fair Hackathon, our main focus was getting Mainnet testers and improving the product based on real user feedback. We added support for Metaplex Core NFTs, improved the escrow cards to make them easier to understand, made many UI and smart contract improvements, fixed various issues reported by testers, and updated our documentation.
+
+The hackathon was mainly about taking an already-built product, putting it in front of real users, and improving it based on actual usage and feedback.
 
 ## Team
 
-`<Add team members and links.>`
+### P33M (Founder & CEO)
+
+Telegram : @P33M_real
+
+X : https://x.com/p33mTheRealOne/
+
+Linkedin : https://www.linkedin.com/in/ingkarat-buapha-686523406/
+
+Instagram : https://www.instagram.com/_p33m._/
 
 ## License
 
