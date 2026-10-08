@@ -1048,4 +1048,38 @@ END
 $$;
 
 
+-- =========================================================
+-- 26) AUTH NONCES (Sign In With Solana)
+--
+-- One row per wallet login attempt.
+-- The server creates the row, the wallet signs the stored
+-- message, and the row can be used only once before it expires.
+--
+-- No policies on purpose: only the service role (server
+-- API routes) can read or write this table.
+-- =========================================================
+
+CREATE TABLE IF NOT EXISTS public.auth_nonces (
+  nonce text NOT NULL,
+  wallet text NOT NULL,
+  domain text NOT NULL,
+  message text NOT NULL,
+  expires_at timestamptz NOT NULL,
+  used_at timestamptz,
+  created_at timestamptz NOT NULL DEFAULT now(),
+
+  CONSTRAINT auth_nonces_pkey PRIMARY KEY (nonce)
+);
+
+ALTER TABLE public.auth_nonces ENABLE ROW LEVEL SECURITY;
+
+REVOKE ALL ON public.auth_nonces FROM anon, authenticated;
+
+CREATE INDEX IF NOT EXISTS idx_auth_nonces_wallet
+  ON public.auth_nonces(wallet, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_auth_nonces_expires
+  ON public.auth_nonces(expires_at);
+
+
 COMMIT;
