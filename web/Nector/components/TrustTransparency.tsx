@@ -55,8 +55,8 @@ export default function TrustTransparency() {
                   Transparent Dispute System
                 </h3>
                 <p className="mt-1 text-[#A6A6A6] text-[14px] leading-[1.6] max-w-[420px]">
-                  If a dispute arises, neutral arbitrators review
-                  evidence on-chain to decide the outcome fairly.
+                  If a dispute arises, there is no moderator. Deadlines
+                  and deposits decide the outcome, enforced by the contract.
                 </p>
               </div>
             </div>
@@ -85,20 +85,30 @@ export default function TrustTransparency() {
 
             {/* Code */}
             <pre className="leading-[1.7] overflow-x-auto">
-{`function releaseFunds(orderId) {
-  const order = await getOrder(orderId);
+{`// Excerpt from the Nector program: confirm_delivery
+pub fn confirm_delivery_handler(
+    ctx: Context<ConfirmDelivery>,
+    _order_index: u64,
+) -> Result<()> {
+    let order = &mut ctx.accounts.order;
+    let escrow = &mut ctx.accounts.escrow;
 
-  // Ensure security checks
-  if (order.status !== 'CONFIRMED') {
-    throw new Error('Buyer has not confirmed');
-  }
+    // ---------------- security ----------------
+    require!(
+        order.state == OrderState::MarkShipped as u8,
+        ErrorCode::InvalidState
+    );
+    require!(
+        ctx.accounts.buyer.key() == order.buyer_wallet,
+        ErrorCode::InvalidBuyer
+    );
 
-  // Atomic transfer
-  await transfer(order.seller, order.amount);
+    // ... check the escrow holds enough ...
+    // ... pay the seller, return both bonds ...
 
-  // Close order
-  order.status = 'CONFIRMED';
-  return true;
+    escrow.amount_locked = 0;
+    order.state = OrderState::Completed as u8;
+    Ok(())
 }`}
             </pre>
           </div>
