@@ -139,6 +139,7 @@ The four timeout instructions (`confirm_timeout`, `shipping_timeout`, `buyer_win
 | **Seller does not ship** | `shipping_timeout` refunds the buyer in full and charges the seller a 20% penalty (half to the buyer, half burned) | Fees paid at funding are not refunded |
 | **Seller does not answer a dispute** | `buyer_win`: same penalty path | None beyond timing, see 9.2 |
 | **Fake NFT or wrong asset** | Supply, decimals and balance checks; Core program owner check | The buyer still has to verify what the NFT represents |
+| **Replaying a login signature** | One-time, server-issued message bound to the site, the wallet and a 5-minute expiry; nonce is consumed atomically | Needs `NEXT_PUBLIC_SITE_URL` set in production to fix the domain |
 | **Malicious frontend** | Users sign each transaction in Phantom | A compromised site could request harmful transactions. Users should review what they sign. |
 | **Manipulated price display** | The contract never uses prices | The USD figure in the UI is informational only |
 
@@ -152,17 +153,30 @@ The four timeout instructions (`confirm_timeout`, `shipping_timeout`, `buyer_win
 - Messages and escrow orders are visible only to their participants.
 - Profiles and usernames are readable by authenticated users; users can write only their own.
 - Feedback is insert-only for users.
+- `auth_nonces` (one-time login messages) has Row Level Security enabled, no policies and no grants for users, so only the server's service-role key can read or write it.
 - Storage buckets use separate policies. Private buckets (`chat-images`, `chat-voice`, `escrow`, `digital-delivery`) are limited to the relevant participants, and `digital-delivery` uploads are limited to the order's seller.
 
 **Limitation:** RLS restricts rows, not columns. An order participant can edit any column of their own order row, including `status` and the transaction fields. Supabase values are therefore display data, and the on-chain order state is the source of truth.
 
 The Keeper writes to Supabase with the service-role key, which bypasses RLS. That key must never reach the frontend or the repository.
 
-### 6.2 Frontend
+### 6.2 Frontend and wallet sign-in
 
 - Only Phantom is supported.
 - The frontend builds transactions; the user approves and signs each one in the wallet.
 - The frontend does not hold keys and cannot move funds without a signature.
+
+**Wallet sign-in** uses a one-time message issued by the server:
+
+1. The browser asks `/api/auth/nonce` for a message for the user's wallet.
+2. The server creates a random nonce and a message that names the site's domain, the wallet and a 5-minute expiry. It stores the message in `auth_nonces`.
+3. Phantom signs exactly that message.
+4. `/api/auth/phantom` accepts the login only if the nonce exists, is unused and unexpired, the wallet and domain match, and the signature is valid for the stored message.
+5. The nonce is marked used in a single atomic update, so it works once, even if two requests arrive at the same time.
+
+A signature collected on another site, or from an earlier login, can't be replayed, because it is not bound to a nonce the server issued for this login.
+
+Set `NEXT_PUBLIC_SITE_URL` in production. It fixes the domain used in the message. If it is empty, the domain is read from request headers, which is less safe.
 
 ### 6.3 Keeper
 
@@ -256,6 +270,11 @@ Timeouts are permissionless, but Nector currently runs the Keeper that submits t
 
 If a timeout transaction succeeds on-chain but the following Supabase update fails, the Keeper does not retry the update. The on-chain state is correct; the displayed status may be stale until corrected.
 
+### 9.9 Wallet sign-in limits
+
+- Each wallet can have up to 5 unused login messages at a time. There is no per-IP rate limit, so add one at your host or CDN if login abuse becomes a concern.
+- For users who sign up with email, the wallet saved by the Connect Phantom button is sent by the browser without a signature. Users who sign in with Phantom are not affected, because their wallet is proven at sign-in.
+
 ---
 
 ## 10. Reporting a Vulnerability
@@ -266,7 +285,7 @@ Contact us through one of these channels:
 
 - Discord: https://discord.gg/2djtd6a47
 - Telegram: @P33M_real
-- X: https/x.com/p33mTheRealOne/
+- X: https://x.com/p33mTheRealOne/
 
 Please include:
 
