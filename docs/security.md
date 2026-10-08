@@ -264,9 +264,9 @@ If you find a security issue, please report it privately before disclosing it pu
 
 Contact us through one of these channels:
 
-- Discord: `<add handle or invite link>`
-- Telegram: `<add handle>`
-- X: `<add handle>`
+- Discord: https://discord.gg/2djtd6a47
+- Telegram: @P33M_real
+- X: https/x.com/p33mTheRealOne/
 
 Please include:
 
