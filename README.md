@@ -9,7 +9,7 @@ Built for the **Colosseum Crypto World's Fair Hackathon**.
 | | |
 | --- | --- |
 | Live app | nector.chat |
-| Demo video | https://youtu.be/s3RhI91u9hs?si=9a47leY9xIsJANx1) |
+| Demo video | https://youtu.be/s3RhI91u9hs |
 | Program (Solana Mainnet) | [`WytegETAnkDtkeo5H63QvnRPKgK39ez5MSqSBqwydPb`](https://explorer.solana.com/address/WytegETAnkDtkeo5H63QvnRPKgK39ez5MSqSBqwydPb) |
 | Deploy transaction | [View on Explorer](https://explorer.solana.com/tx/35rU9AjJcvBg68WVYhQhZnzJAAy3j7N5RwCX1BHVWfsBKDT7ZcdK4ygxXuumjCnq8Xg4eDtHiSXeENVFg8WmvFp1) |
 
