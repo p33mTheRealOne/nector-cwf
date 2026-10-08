@@ -2,7 +2,7 @@
 
 This folder holds the database and storage setup for Nector. Everything is in one SQL file, [`schema.sql`](./schema.sql). Running it on a Supabase project creates:
 
-- 6 tables with Row Level Security (RLS): `profiles`, `usernames`, `contacts`, `messages`, `escrow_orders`, `feedbacks`
+- 7 tables with Row Level Security (RLS): `profiles`, `usernames`, `contacts`, `messages`, `escrow_orders`, `feedbacks`, `auth_nonces`
 - 5 storage buckets: `profiles`, `chat-images`, `chat-voice`, `escrow`, `digital-delivery`
 - the RLS policies for those tables and buckets
 - a trigger that keeps `profiles.updated_at` current
@@ -33,7 +33,7 @@ The file is wrapped in `BEGIN; ... COMMIT;`, so it is applied as a single unit. 
 Run these in the SQL editor:
 
 ```sql
--- 6 tables, all with rowsecurity = true
+-- 7 tables, all with rowsecurity = true
 select tablename, rowsecurity
 from pg_tables
 where schemaname = 'public'
@@ -56,7 +56,7 @@ where schemaname in ('public', 'storage')
 order by schemaname, tablename, policyname;
 ```
 
-You should see `contacts`, `escrow_orders`, `feedbacks`, `messages`, `profiles` and `usernames`.
+You should see `auth_nonces`, `contacts`, `escrow_orders`, `feedbacks`, `messages`, `profiles` and `usernames`.
 
 ### 4. Configure authentication
 
@@ -127,12 +127,13 @@ The script is written to be run more than once:
 
 | Table | Purpose | Key points |
 | --- | --- | --- |
-| `profiles` | One row per user | `bio` (max 160 characters), `avatar_url`, unique `wallet_address` |
+| `profiles` | One row per user | `bio` (max 160 characters), `avatar_url`, unique `wallet_address` (saved at Phantom sign-in, or when the user connects a wallet) |
 | `usernames` | Unique usernames | One per user, 3 to 32 characters, globally unique |
 | `contacts` | A user's contact list | Primary key `(owner_id, contact_id)`; a user can't add themselves |
 | `messages` | Chat messages | `message_type` is `text`, `escrow` or `escrow_update`; sender and receiver must differ; `read_at` marks read messages |
 | `escrow_orders` | Order metadata linked to on-chain orders | See below |
 | `feedbacks` | In-app feedback | `type` is `Bug`, `Idea` or `Other` |
+| `auth_nonces` | One-time login messages for Phantom sign-in | Stores the nonce, wallet, domain, message and expiry. Each nonce works once and expires after 5 minutes. Only the server can access it. |
 
 All user references point at `auth.users` and are deleted when the user is deleted (`ON DELETE CASCADE`).
 
@@ -174,6 +175,7 @@ RLS is enabled on every table. All policies apply to signed-in (`authenticated`)
 | `messages` | Sender or receiver | Insert as sender; the receiver can update (for example to mark as read) |
 | `escrow_orders` | Buyer or seller | Seller inserts; buyer or seller updates |
 | `feedbacks` | Nobody (insert-only) | Insert own rows |
+| `auth_nonces` | Nobody (server only) | Nobody (server only) |
 
 Storage policies:
 
@@ -200,6 +202,7 @@ Storage policies:
 | `violates check constraint "escrow_orders_status_check"` | The app sent a `status` outside the eight allowed values. |
 | `duplicate key value violates unique constraint "escrow_orders_one_active_nft_per_seller_mint"` | The seller already has an active listing (`status = 'onchain_created'`) for that NFT mint. |
 | `violates check constraint "messages_not_self_check"` | A message can't be sent to yourself. |
+| Phantom sign-in fails with `NONCE_FAILED` or `relation "auth_nonces" does not exist` | The `auth_nonces` table is missing. Re-run `schema.sql` (section 26). |
 | A new column or constraint doesn't exist after re-running | The script doesn't change existing tables. See [Re-running the schema](#re-running-the-schema). |
 | App can't read or write after setup | Check the three environment values in [step 5](#5-connect-the-apps) and restart the app. |
 
