@@ -117,7 +117,7 @@ The script is written to be run more than once:
 - buckets are inserted or updated (`ON CONFLICT`)
 - the realtime publication only adds tables that are missing
 
-**Existing tables are not modified.** If you change a column or constraint in `schema.sql`, re-running it will not apply the change to a table that already exists. Use an `ALTER TABLE` statement or a migration, or start from a fresh project in development.
+**Existing tables are not modified,** with one exception: section 26 adds the `ip_hash` column to an existing `auth_nonces` table. If you change a column or constraint in `schema.sql`, re-running it will not apply the change to a table that already exists. Use an `ALTER TABLE` statement or a migration, or start from a fresh project in development.
 
 ---
 
@@ -133,7 +133,7 @@ The script is written to be run more than once:
 | `messages` | Chat messages | `message_type` is `text`, `escrow` or `escrow_update`; sender and receiver must differ; `read_at` marks read messages |
 | `escrow_orders` | Order metadata linked to on-chain orders | See below |
 | `feedbacks` | In-app feedback | `type` is `Bug`, `Idea` or `Other` |
-| `auth_nonces` | One-time login messages for Phantom sign-in | Stores the nonce, wallet, domain, message and expiry. Each nonce works once and expires after 5 minutes. Only the server can access it. |
+| `auth_nonces` | One-time login messages for Phantom sign-in | Stores the nonce, wallet, domain, message, a keyed hash of the requester's IP (for rate limiting) and the expiry. Each nonce works once and expires after 5 minutes. Only the server can access it. |
 
 All user references point at `auth.users` and are deleted when the user is deleted (`ON DELETE CASCADE`).
 
@@ -202,7 +202,7 @@ Storage policies:
 | `violates check constraint "escrow_orders_status_check"` | The app sent a `status` outside the eight allowed values. |
 | `duplicate key value violates unique constraint "escrow_orders_one_active_nft_per_seller_mint"` | The seller already has an active listing (`status = 'onchain_created'`) for that NFT mint. |
 | `violates check constraint "messages_not_self_check"` | A message can't be sent to yourself. |
-| Phantom sign-in fails with `NONCE_FAILED` or `relation "auth_nonces" does not exist` | The `auth_nonces` table is missing. Re-run `schema.sql` (section 26). |
+| Phantom sign-in fails with `NONCE_FAILED` or `relation "auth_nonces" does not exist` | The `auth_nonces` table or its `ip_hash` column is missing. Re-run `schema.sql` (section 26). |
 | A new column or constraint doesn't exist after re-running | The script doesn't change existing tables. See [Re-running the schema](#re-running-the-schema). |
 | App can't read or write after setup | Check the three environment values in [step 5](#5-connect-the-apps) and restart the app. |
 
