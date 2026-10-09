@@ -139,7 +139,7 @@ The four timeout instructions (`confirm_timeout`, `shipping_timeout`, `buyer_win
 | **Seller does not ship** | `shipping_timeout` refunds the buyer in full and charges the seller a 20% penalty (half to the buyer, half burned) | Fees paid at funding are not refunded |
 | **Seller does not answer a dispute** | `buyer_win`: same penalty path | None beyond timing, see 9.2 |
 | **Fake NFT or wrong asset** | Supply, decimals and balance checks; Core program owner check | The buyer still has to verify what the NFT represents |
-| **Replaying a login signature** | One-time, server-issued message bound to the site, the wallet and a 5-minute expiry; nonce is consumed atomically | Needs `NEXT_PUBLIC_SITE_URL` set in production to fix the domain |
+| **Replaying a login signature** | One-time, server-issued message bound to the site, the wallet and a 5-minute expiry; nonce is consumed atomically | None known. Login fails with `SITE_NOT_CONFIGURED` if `NEXT_PUBLIC_SITE_URL` is not set |
 | **Malicious frontend** | Users sign each transaction in Phantom | A compromised site could request harmful transactions. Users should review what they sign. |
 | **Manipulated price display** | The contract never uses prices | The USD figure in the UI is informational only |
 
@@ -176,7 +176,7 @@ The Keeper writes to Supabase with the service-role key, which bypasses RLS. Tha
 
 A signature collected on another site, or from an earlier login, can't be replayed, because it is not bound to a nonce the server issued for this login.
 
-Set `NEXT_PUBLIC_SITE_URL` in production. It fixes the domain used in the message. If it is empty, the domain is read from request headers, which is less safe.
+The domain in the message is never taken from client-controlled request headers. In production it comes from `NEXT_PUBLIC_SITE_URL`, which must match the address users open (for example `https://www.nector.chat` if the site serves on `www`). On Vercel preview deployments it comes from `VERCEL_URL`. In local development the `Host` header is accepted only for `localhost` and `127.0.0.1`. If none of these applies, login fails with `SITE_NOT_CONFIGURED`. A phishing site therefore can't obtain a message that names its own domain.
 
 ### 6.3 Keeper
 
@@ -272,7 +272,7 @@ If a timeout transaction succeeds on-chain but the following Supabase update fai
 
 ### 9.9 Wallet sign-in limits
 
-- Each wallet can have up to 5 unused login messages at a time. There is no per-IP rate limit, so add one at your host or CDN if login abuse becomes a concern.
+- The nonce route allows each client IP 20 login messages per 5 minutes. The limit is per IP, not per wallet, so nobody can lock another wallet out of login. The IP is read from `x-vercel-forwarded-for`, `x-real-ip` or `x-forwarded-for` (in that order), which can be trusted only on a host that sets them itself, such as Vercel. If no IP can be determined in production, the route fails with `NONCE_FAILED` instead of skipping the limit. Only a keyed hash of the IP is stored (key: `AUTH_IP_HASH_SECRET`, or `SUPABASE_SERVICE_ROLE_KEY` if it is empty). If you deploy behind another proxy, make sure it overwrites these headers, and also rate limit at the host or CDN.
 - For users who sign up with email, the wallet saved by the Connect Phantom button is sent by the browser without a signature. Users who sign in with Phantom are not affected, because their wallet is proven at sign-in.
 
 ---
