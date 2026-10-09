@@ -389,7 +389,7 @@ Browser                    Server                         Supabase
    │ ◄─────────────────────── │  sign-in token                │
 ```
 
-The message names the site's domain, the wallet and a 5-minute expiry. A nonce can be used once, so an old signature can't be replayed. See [security.md](./security.md) for details.
+The message names the site's domain, the wallet and a 5-minute expiry. A nonce can be used once, so an old signature can't be replayed. The domain comes from the configured site URL, never from request headers, and the server limits how many login messages one IP can request. See [security.md](./security.md) for details.
 
 ---
 
@@ -1404,6 +1404,7 @@ nector-cwf/
 │       │   ├── anchorClient.ts
 │       │   ├── pda.ts
 │       │   ├── siws.ts               # wallet sign-in message helpers
+│       │   ├── clientIp.ts           # client IP and IP hash for the login rate limit
 │       │   └── supabase/
 │       ├── idl/
 │       │   └── nector.json
