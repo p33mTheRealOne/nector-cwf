@@ -1055,6 +1055,9 @@ $$;
 -- The server creates the row, the wallet signs the stored
 -- message, and the row can be used only once before it expires.
 --
+-- ip_hash: keyed hash of the requester's IP, used to rate limit
+-- nonce requests per IP (not per wallet).
+--
 -- No policies on purpose: only the service role (server
 -- API routes) can read or write this table.
 -- =========================================================
@@ -1064,12 +1067,18 @@ CREATE TABLE IF NOT EXISTS public.auth_nonces (
   wallet text NOT NULL,
   domain text NOT NULL,
   message text NOT NULL,
+  ip_hash text,
   expires_at timestamptz NOT NULL,
   used_at timestamptz,
   created_at timestamptz NOT NULL DEFAULT now(),
 
   CONSTRAINT auth_nonces_pkey PRIMARY KEY (nonce)
 );
+
+-- For databases where auth_nonces already exists:
+-- CREATE TABLE IF NOT EXISTS above does not add new columns.
+ALTER TABLE public.auth_nonces
+  ADD COLUMN IF NOT EXISTS ip_hash text;
 
 ALTER TABLE public.auth_nonces ENABLE ROW LEVEL SECURITY;
 
@@ -1080,6 +1089,9 @@ CREATE INDEX IF NOT EXISTS idx_auth_nonces_wallet
 
 CREATE INDEX IF NOT EXISTS idx_auth_nonces_expires
   ON public.auth_nonces(expires_at);
+
+CREATE INDEX IF NOT EXISTS auth_nonces_ip_hash_expires_idx
+  ON public.auth_nonces(ip_hash, expires_at);
 
 
 COMMIT;
