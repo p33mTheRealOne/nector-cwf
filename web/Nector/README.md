@@ -73,8 +73,9 @@ NEXT_PUBLIC_SITE_URL=http://localhost:3000
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Yes | Public anon key. Access is limited by Row Level Security. |
 | `SUPABASE_SERVICE_ROLE_KEY` | **No, server only** | Bypasses Row Level Security. Used by the sign-up, wallet sign-in and avatar-sync API routes. |
 | `SOLANA_RPC_URL` | **No, server only** | RPC endpoint used by the `/api/solana-rpc` proxy. Keeps your RPC API key out of the browser. |
-| `NEXT_PUBLIC_SITE_URL` | Yes | Public URL of the site. Used for auth redirects and as the domain in the wallet sign-in message. **Set it in production.** If empty, the domain is read from request headers, which is less safe. |
+| `NEXT_PUBLIC_SITE_URL` | Yes | Public URL of the site, exactly as users open it, for example `https://www.nector.chat` if the site serves on `www`. Used for auth redirects and as the domain and URI in the wallet sign-in message. The domain is never read from request headers. **Set it in production:** without it, sign-in fails with `SITE_NOT_CONFIGURED`. Locally, keep it equal to the address you open (including the port), or leave it empty. On Vercel preview deployments, `VERCEL_URL` is used when it is empty. |
 | `SUPABASE_URL` | No | Optional. The avatar-sync route uses it if set, otherwise `NEXT_PUBLIC_SUPABASE_URL`. |
+| `AUTH_IP_HASH_SECRET` | **No, server only** | Optional. Secret key used to hash client IP addresses for the login rate limit. If empty, `SUPABASE_SERVICE_ROLE_KEY` is used. Only the hash is stored. |
 
 ### 5. Run
 
@@ -110,6 +111,8 @@ There are two ways in:
 5. The server checks that the nonce exists, is unused and unexpired, and that the wallet, domain and signature match. It marks the nonce as used, so it works only once.
 6. The server creates (or finds) a Supabase user for that wallet, saves the wallet on the user's profile, and returns a one-time magic-link token.
 7. The browser exchanges that token for a Supabase session.
+
+The nonce route allows each IP address 20 login messages per 5 minutes. This limit is per IP, not per wallet, so nobody can lock another wallet out of login.
 
 **Email and password**
 
@@ -168,6 +171,7 @@ Nector/
 │   ├── anchorClient.ts          # program ID, Anchor client, transaction helpers
 │   ├── pda.ts                   # PDA derivation
 │   ├── siws.ts                  # wallet sign-in message helpers
+│   ├── clientIp.ts              # client IP and IP hash for the login rate limit
 │   └── supabase/                # browser and server clients
 ├── idl/nector.json              # Nector program IDL
 ├── public/                      # static assets, whitepaper PDF
@@ -253,7 +257,7 @@ The Keeper in [`keeper/`](../../keeper/README.md) refuses devnet RPCs and checks
 The app is a standard Next.js project and can be hosted anywhere that runs Next.js 16 (for example Vercel).
 
 1. Set all environment variables from the table above in your host's settings.
-2. Set `NEXT_PUBLIC_SITE_URL` to your production URL, and update the Site URL and redirect URLs in Supabase to match.
+2. Set `NEXT_PUBLIC_SITE_URL` to the exact address users open, for example `https://nector.chat` (or `https://www.nector.chat` if the site serves on `www`). Sign-in fails without it. If the site is reachable on two hosts, redirect one to the other, because Phantom refuses to sign a message whose URI differs from the page. Also update the Site URL and redirect URLs in Supabase to match. Your host must send the visitor's IP in `x-vercel-forwarded-for`, `x-real-ip` or `x-forwarded-for` and overwrite those headers (Vercel does), because the login rate limit depends on it.
 3. Build and start:
 
 ```bash
@@ -273,8 +277,9 @@ npm run start
 | Redirected away after sign-in, or the callback loops back to `/auth` | The Site URL or redirect URL in Supabase doesn't match the address you are using. |
 | Phantom does not appear or sign-in does nothing | Install the Phantom extension and unlock it. Only Phantom is supported. |
 | Phantom sign-in fails with `INVALID_OR_EXPIRED_NONCE` | The login message expired (5 minutes), was already used, or was issued for a different site. Sign in again. If it keeps failing, check that `NEXT_PUBLIC_SITE_URL` matches the address you use. |
-| Phantom sign-in fails with `NONCE_FAILED` or `relation "auth_nonces" does not exist` | The `auth_nonces` table is missing. Re-run `supabase/schema.sql` (section 26). |
-| Phantom sign-in fails with `TOO_MANY_REQUESTS` or `SITE_NOT_CONFIGURED` | `TOO_MANY_REQUESTS`: too many unfinished login attempts for this wallet. Wait a few minutes. `SITE_NOT_CONFIGURED`: set `NEXT_PUBLIC_SITE_URL`. |
+| Phantom sign-in fails with `NONCE_FAILED` or `relation "auth_nonces" does not exist` | Either the `auth_nonces` table or its `ip_hash` column is missing (re-run `supabase/schema.sql`, section 26), or, in production, the host sent no client IP header, so the rate limit can't run. Check that your host sets `x-vercel-forwarded-for`, `x-real-ip` or `x-forwarded-for`. |
+| Phantom sign-in fails with `TOO_MANY_REQUESTS` or `SITE_NOT_CONFIGURED` | `TOO_MANY_REQUESTS`: this IP asked for more than 20 login messages in 5 minutes. Wait a few minutes. `SITE_NOT_CONFIGURED`: set `NEXT_PUBLIC_SITE_URL` to a valid `http` or `https` URL. |
+| Phantom says the URI in the sign-in message does not match the requesting app's origin | `NEXT_PUBLIC_SITE_URL` is not the address in the browser bar. Compare the protocol, the host (`www` or not, `localhost` or `127.0.0.1`) and the port, and set it to exactly what you open, or leave it empty in development. In production, redirect the other host to the main one. |
 | NFTs don't load, or `Method not found` | Your RPC provider doesn't support the DAS API. Use a DAS-capable provider such as Helius. |
 | Transactions fail on a fresh deployment | The wallet has no SOL, or the program ID in `lib/anchorClient.ts` and `idl/nector.json` doesn't match a deployed program. See [Using your own Program ID](#using-your-own-program-id). |
 | Chat or orders don't update live | Realtime isn't enabled on `messages` and `escrow_orders`. Re-run the realtime section of `supabase/schema.sql`. |
@@ -288,6 +293,6 @@ npm run start
 - The anon key is meant to be public. Row Level Security on the Supabase tables is what protects the data.
 - Add a `.gitignore` that excludes `.env.local`, `.env*.local`, `node_modules/` and `.next/`, and never commit environment files.
 - The app never holds user keys. Every escrow transaction is built in the browser and signed by the user in Phantom.
-- Phantom sign-in uses a one-time message issued by the server (`/api/auth/nonce`), stored in `auth_nonces` and valid for 5 minutes, so an old signature can't be replayed to log in. Set `NEXT_PUBLIC_SITE_URL` in production so the domain in that message is fixed.
+- Phantom sign-in uses a one-time message issued by the server (`/api/auth/nonce`), stored in `auth_nonces` and valid for 5 minutes, so an old signature can't be replayed to log in. The domain in that message always comes from `NEXT_PUBLIC_SITE_URL` (or `VERCEL_URL` on Vercel previews), never from request headers. The nonce route allows 20 messages per IP per 5 minutes, and only a keyed hash of the IP is stored.
 
 See [docs/security.md](../../docs/security.md) for the full security model.
